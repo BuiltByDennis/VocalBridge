@@ -1,0 +1,63 @@
+{
+  "total_predictions": 15,
+  "evaluated_english_samples": 14,
+  "unsupported_capability_samples": 1,
+  "metrics": {
+    "overall_wer": "100.00%",
+    "overall_cer": "100.00%",
+    "critical_word_accuracy": "0.00%",
+    "phrase_accuracy": "0.00%",
+    "number_accuracy": "0.00%"
+  },
+  "latency_ms": {
+    "mean": 66.64285714285714,
+    "median": 64,
+    "p90": 76,
+    "p95": 87,
+    "mean_rtf": 0.044
+  },
+  "speaker_breakdown": {
+    "spk001": {
+      "count": 5,
+      "wer": "100.00%"
+    },
+    "spk002": {
+      "count": 3,
+      "wer": "100.00%"
+    },
+    "spk003": {
+      "count": 3,
+      "wer": "100.00%"
+    },
+    "spk004": {
+      "count": 3,
+      "wer": "100.00%"
+    }
+  },
+  "domain_breakdown": {
+    "everyday": {
+      "count": 3,
+      "wer": "100.00%"
+    },
+    "healthcare": {
+      "count": 3,
+      "wer": "100.00%"
+    },
+    "emergency": {
+      "count": 2,
+      "wer": "100.00%"
+    },
+    "commerce": {
+      "count": 2,
+      "wer": "100.00%"
+    },
+    "mobile_money": {
+      "count": 2,
+      "wer": "100.00%"
+    },
+    "numbers": {
+      "count": 2,
+      "wer": "100.00%"
+    }
+  }
+}

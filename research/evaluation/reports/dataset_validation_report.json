@@ -1,0 +1,12 @@
+{
+  "total_files": 15,
+  "valid_files": 15,
+  "invalid_files": 0,
+  "duration_statistics": {
+    "total_sec": 22.5,
+    "mean_sec": 1.5,
+    "min_sec": 1.5,
+    "max_sec": 1.5
+  },
+  "rejected_files": []
+}

@@ -1,0 +1,23 @@
+experiment_id: baseline_en_gh_v001
+dataset_version: kasa_me_dataset_v0.1
+
+model:
+  id: english_edge_v1
+  encoder_path: kasa_me/assets/models/asr/english/encoder.onnx
+  decoder_path: kasa_me/assets/models/asr/english/decoder.onnx
+  joiner_path: kasa_me/assets/models/asr/english/joiner.onnx
+  tokens_path: kasa_me/assets/models/asr/english/tokens.txt
+  sample_rate: 16000
+
+dataset:
+  manifest: research/datasets/manifests/kasa_me_test_manifest.csv
+
+evaluation:
+  normalize_case: true
+  normalize_punctuation: true
+  calculate_wer: true
+  calculate_cer: true
+  calculate_critical_words: true
+  calculate_numbers: true
+
+seed: 42

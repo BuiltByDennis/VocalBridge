@@ -1,24 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
+import 'speech_engine_event.dart';
 
-abstract class SpeechEngineEvent {}
-
-class SpeechEngineReadyEvent extends SpeechEngineEvent {}
-class SpeechEngineListeningEvent extends SpeechEngineEvent {}
-class SpeechEngineProcessingEvent extends SpeechEngineEvent {}
-class SpeechEngineResultEvent extends SpeechEngineEvent {
-  final String transcript;
-  SpeechEngineResultEvent(this.transcript);
-}
-class SpeechEngineErrorEvent extends SpeechEngineEvent {
-  final String error;
-  SpeechEngineErrorEvent(this.error);
-}
+export 'speech_engine_event.dart';
 
 abstract class SpeechEngine {
   Future<void> initialize();
   Future<void> dispose();
   Future<void> start();
   Future<void> stop();
+  Future<void> acceptAudio(Uint8List pcm16);
   Stream<SpeechEngineEvent> get events;
   bool get isInitialized;
 }
