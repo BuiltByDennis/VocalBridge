@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../audio/recorder/audio_recorder_service.dart';
@@ -6,6 +7,7 @@ import '../../speech/asr/models/asr_model_config.dart';
 import '../../speech/asr/models/asr_model_registry.dart';
 import '../../speech/engine/speech_engine.dart';
 import '../../speech/engine/speech_engine_factory.dart';
+import '../../speech/personalization/personalization_pipeline.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
 
 enum UiEngineState {
@@ -22,26 +24,36 @@ class HomeCommunicationState {
   final String selectedLanguage;
   final AsrModelConfig activeModel;
   final String partialTranscript;
-  final String finalTranscript;
+  final String rawTranscript;
+  final String personalizedTranscript;
   final double? confidence;
   final Duration? lastInferenceTime;
   final Duration? lastAudioDuration;
   final String? errorMessage;
   final DateTime? modelLoadedAt;
   final Duration? modelLoadDuration;
+  final List<String> quickPhrases;
 
   const HomeCommunicationState({
     this.engineState = UiEngineState.notLoaded,
     this.selectedLanguage = 'English (Ghana)',
     required this.activeModel,
     this.partialTranscript = '',
-    this.finalTranscript = '',
+    this.rawTranscript = '',
+    this.personalizedTranscript = '',
     this.confidence,
     this.lastInferenceTime,
     this.lastAudioDuration,
     this.errorMessage,
     this.modelLoadedAt,
     this.modelLoadDuration,
+    this.quickPhrases = const [
+      'I need water',
+      'I need help',
+      'I am in pain',
+      'Please call my mother',
+      'I need to see the doctor'
+    ],
   });
 
   HomeCommunicationState copyWith({
@@ -49,26 +61,30 @@ class HomeCommunicationState {
     String? selectedLanguage,
     AsrModelConfig? activeModel,
     String? partialTranscript,
-    String? finalTranscript,
+    String? rawTranscript,
+    String? personalizedTranscript,
     double? confidence,
     Duration? lastInferenceTime,
     Duration? lastAudioDuration,
     String? errorMessage,
     DateTime? modelLoadedAt,
     Duration? modelLoadDuration,
+    List<String>? quickPhrases,
   }) {
     return HomeCommunicationState(
       engineState: engineState ?? this.engineState,
       selectedLanguage: selectedLanguage ?? this.selectedLanguage,
       activeModel: activeModel ?? this.activeModel,
       partialTranscript: partialTranscript ?? this.partialTranscript,
-      finalTranscript: finalTranscript ?? this.finalTranscript,
+      rawTranscript: rawTranscript ?? this.rawTranscript,
+      personalizedTranscript: personalizedTranscript ?? this.personalizedTranscript,
       confidence: confidence ?? this.confidence,
       lastInferenceTime: lastInferenceTime ?? this.lastInferenceTime,
       lastAudioDuration: lastAudioDuration ?? this.lastAudioDuration,
       errorMessage: errorMessage ?? this.errorMessage,
       modelLoadedAt: modelLoadedAt ?? this.modelLoadedAt,
       modelLoadDuration: modelLoadDuration ?? this.modelLoadDuration,
+      quickPhrases: quickPhrases ?? this.quickPhrases,
     );
   }
 }
@@ -77,10 +93,12 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   late SpeechEngine _speechEngine;
   late AudioRecorderService _recorderService;
   late StreamingAudioPipeline _pipeline;
+  late PersonalizationPipeline _personalizationPipeline;
   StreamSubscription<SpeechEngineEvent>? _eventSub;
 
   HomeCommunicationNotifier()
       : super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
+    _personalizationPipeline = PersonalizationPipeline();
     _initialize();
   }
 
@@ -137,9 +155,11 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         state = state.copyWith(engineState: UiEngineState.processing);
         break;
       case FinalTranscript(text: final text, result: final res):
+        final pRes = _personalizationPipeline.processTranscript(text, confidence: res?.confidence);
         state = state.copyWith(
           engineState: UiEngineState.ready,
-          finalTranscript: text.isNotEmpty ? text : state.finalTranscript,
+          rawTranscript: text,
+          personalizedTranscript: pRes.personalizedTranscript.isNotEmpty ? pRes.personalizedTranscript : state.personalizedTranscript,
           partialTranscript: '',
           confidence: res?.confidence,
           lastInferenceTime: res?.processingTime,
@@ -179,8 +199,23 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     }
   }
 
+  void selectQuickPhrase(String phrase) {
+    HapticFeedback.mediumImpact();
+    state = state.copyWith(
+      rawTranscript: phrase,
+      personalizedTranscript: phrase,
+      confidence: 1.0,
+    );
+  }
+
+  void applyWordCorrection(String observed, String intended) {
+    _personalizationPipeline.safetyGuard.validateAndAddWordMapping(observed, intended);
+    final pRes = _personalizationPipeline.processTranscript(state.rawTranscript, confidence: state.confidence);
+    state = state.copyWith(personalizedTranscript: pRes.personalizedTranscript);
+  }
+
   void clearTranscript() {
-    state = state.copyWith(finalTranscript: '', partialTranscript: '');
+    state = state.copyWith(rawTranscript: '', personalizedTranscript: '', partialTranscript: '');
   }
 
   @override
