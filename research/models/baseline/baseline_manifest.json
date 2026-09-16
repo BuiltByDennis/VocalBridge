@@ -1,0 +1,31 @@
+{
+  "model_id": "english_edge_v1",
+  "version": "1.0.0",
+  "base_model": "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17",
+  "architecture": "Streaming Zipformer Transducer",
+  "quantization": "INT8",
+  "sample_rate": 16000,
+  "runtime": "sherpa_onnx",
+  "files": {
+    "encoder.onnx": {
+      "relative_path": "kasa_me/assets/models/asr/english/encoder.onnx",
+      "size_bytes": 42845182,
+      "sha256": "3810755ce7c3ab26b42a8bcf39d191308fa27fb0f53358823ba46141d03b7eb3"
+    },
+    "decoder.onnx": {
+      "relative_path": "kasa_me/assets/models/asr/english/decoder.onnx",
+      "size_bytes": 539499,
+      "sha256": "21e2a2acd961b3ac72f55be2f10f1a285e1b0b0ba010d7c0b6eab141411b163c"
+    },
+    "joiner.onnx": {
+      "relative_path": "kasa_me/assets/models/asr/english/joiner.onnx",
+      "size_bytes": 259572,
+      "sha256": "e085d73b593cf9b0707f370dbd656d58327d3fe36d80d849202ef81df02cb01e"
+    },
+    "tokens.txt": {
+      "relative_path": "kasa_me/assets/models/asr/english/tokens.txt",
+      "size_bytes": 5048,
+      "sha256": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+    }
+  }
+}

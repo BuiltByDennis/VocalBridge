@@ -1,0 +1,51 @@
+{
+  "report_type": "production_regression_report",
+  "phase": "7A",
+  "timestamp": "2026-09-16T12:00:00Z",
+  "checks": {
+    "production_model_integrity": "PASS",
+    "production_model_hashes": "PASS",
+    "flutter_analyze": "PASS WITH 2 PRE-EXISTING WARNINGS",
+    "flutter_tests": "PASS",
+    "dataset_manifest_validation": "PASS",
+    "baseline_inference_pipeline": "PASS",
+    "offline_integrity": "PASS",
+    "ugspeechdata_acquisition": "DEFERRED_TO_PHASE_7B",
+    "ugspeechdata_processing": "DEFERRED_TO_PHASE_7B",
+    "asr_model_retraining": "NOT_PERFORMED",
+    "production_model_modification": "NOT_PERFORMED"
+  },
+  "flutter_tests_detail": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "suites": [
+      "test/database_migration_test.dart",
+      "test/personalization_pipeline_test.dart",
+      "test/widget_test.dart"
+    ]
+  },
+  "pre_existing_warnings": [
+    {
+      "file": "lib/ui/components/large_push_to_talk_button.dart",
+      "line": 34,
+      "column": 62,
+      "message": "'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss",
+      "status": "PRE_EXISTING",
+      "severity": "LOW",
+      "phase7_action": "NOT_CHANGED",
+      "recommended_action": "FUTURE_CLEANUP"
+    },
+    {
+      "file": "lib/ui/home/home_screen.dart",
+      "line": 113,
+      "column": 66,
+      "message": "'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss",
+      "status": "PRE_EXISTING",
+      "severity": "LOW",
+      "phase7_action": "NOT_CHANGED",
+      "recommended_action": "FUTURE_CLEANUP"
+    }
+  ],
+  "readiness_for_phase_7b": true
+}
