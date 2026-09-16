@@ -110,7 +110,7 @@ class HomeScreen extends ConsumerWidget {
                                 ? 'Initializing speech model...'
                                 : 'Press and hold "Speak" to talk...',
                             style: theme.textTheme.headlineSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                              color: theme.colorScheme.onSurface.withOpacity(0.5),
                               fontStyle: FontStyle.italic,
                             ),
                           ),
