@@ -1,0 +1,60 @@
+{
+  "provenance": {
+    "experiment_id": "phase6_conditions_a_f_v001",
+    "dataset_version": "kasa_me_dataset_v0.1_fixture",
+    "baseline_model_id": "english_edge_v1",
+    "baseline_model_status": "FROZEN",
+    "runtime_version": "sherpa_onnx_1.13.8",
+    "timestamp": "2026-09-16T09:54:38.409280+00:00",
+    "device_environment": {
+      "os": "Linux",
+      "arch": "x86_64",
+      "python_version": "3.12.13"
+    }
+  },
+  "dataset_disclaimer": "Fixture test dataset used strictly for pipeline validation; human speech data required for research efficacy claims.",
+  "conditions": {
+    "Condition A (Frozen Baseline)": {
+      "purpose": "Frozen Zipformer baseline",
+      "target_speaker_wer": "100.00%",
+      "non_target_wer": "100.00%",
+      "efficacy_status": "DATA_REQUIRED",
+      "technical_status": "Evaluated Baseline"
+    },
+    "Condition B (Phase 4 Lightweight Personalization)": {
+      "purpose": "Vocabulary + Phrase Biasing + Correction Memory",
+      "target_speaker_wer": "100.00%",
+      "non_target_wer": "100.00%",
+      "efficacy_status": "DATA_REQUIRED",
+      "technical_status": "Evaluated"
+    },
+    "Condition C (Speaker Representation Research)": {
+      "purpose": "Speaker profile conditioning layer",
+      "target_speaker_wer": "100.00%",
+      "non_target_wer": "100.00%",
+      "efficacy_status": "DATA_REQUIRED",
+      "technical_status": "Evaluated (No neural weight updates)"
+    },
+    "Condition D (Parameter-Efficient Neural Adaptation)": {
+      "purpose": "Trainable adapter / LoRA insertion",
+      "target_speaker_wer": "N/A",
+      "non_target_wer": "N/A",
+      "efficacy_status": "NOT_APPLICABLE",
+      "technical_status": "NOT_COMPATIBLE_WITH_CURRENT_BASELINE_EXPORT"
+    },
+    "Condition E (Combined Personalization)": {
+      "purpose": "Phase 4 + Neural Adaptation",
+      "target_speaker_wer": "100.00%",
+      "non_target_wer": "100.00%",
+      "efficacy_status": "DATA_REQUIRED",
+      "technical_status": "Evaluated (Phase 4 active, Neural adapter fallback)"
+    },
+    "Condition F (Alternative Compact Architecture Research)": {
+      "purpose": "Architectural investigation of foundation models",
+      "target_speaker_wer": "N/A",
+      "non_target_wer": "N/A",
+      "efficacy_status": "RESEARCH_INVESTIGATION",
+      "technical_status": "CURRENT_ZIPFORMER_RETAINS_PRODUCTION_BASELINE"
+    }
+  }
+}

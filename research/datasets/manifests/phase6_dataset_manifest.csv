@@ -1,0 +1,16 @@
+audio_path,transcript,speaker_id,language,dialect,condition,session_id,domain,split
+research/datasets/fixtures/sample_001.wav,I need water,spk001,en_GH,ghanaian_english,typical,session01,everyday,train
+research/datasets/fixtures/sample_002.wav,Please help me,spk001,en_GH,ghanaian_english,typical,session01,everyday,train
+research/datasets/fixtures/sample_003.wav,I am hungry,spk001,en_GH,ghanaian_english,typical,session01,everyday,train
+research/datasets/fixtures/sample_004.wav,I am in pain,spk001,en_GH,ghanaian_english,typical,session01,healthcare,train
+research/datasets/fixtures/sample_005.wav,I need my medicine,spk001,en_GH,ghanaian_english,typical,session01,healthcare,train
+research/datasets/fixtures/sample_006.wav,I need to see the doctor,spk002,en_GH,ghanaian_english,typical,session01,healthcare,val
+research/datasets/fixtures/sample_007.wav,Call for help,spk002,en_GH,ghanaian_english,typical,session01,emergency,val
+research/datasets/fixtures/sample_008.wav,Call my mother,spk002,en_GH,ghanaian_english,typical,session01,emergency,val
+research/datasets/fixtures/sample_009.wav,How much does this cost,spk003,en_GH,ghanaian_english,atypical,session01,commerce,test
+research/datasets/fixtures/sample_010.wav,I want to buy this,spk003,en_GH,ghanaian_english,atypical,session01,commerce,test
+research/datasets/fixtures/sample_011.wav,Send fifty cedis,spk003,en_GH,ghanaian_english,atypical,session01,mobile_money,test
+research/datasets/fixtures/sample_012.wav,How much is in my account,spk004,en_GH,ghanaian_english,atypical,session01,mobile_money,test
+research/datasets/fixtures/sample_013.wav,five,spk004,en_GH,ghanaian_english,atypical,session01,numbers,test
+research/datasets/fixtures/sample_014.wav,fifty,spk004,en_GH,ghanaian_english,atypical,session01,numbers,test
+research/datasets/fixtures/sample_015.wav,Where is the hospital,spk005,twi,ashanti_twi,atypical,session01,questions,test

@@ -1,0 +1,13 @@
+{
+  "experiment_id": "phase6_conditions_a_f_v001",
+  "dataset_version": "kasa_me_dataset_v0.1_fixture",
+  "baseline_model_id": "english_edge_v1",
+  "baseline_model_status": "FROZEN",
+  "runtime_version": "sherpa_onnx_1.13.8",
+  "timestamp": "2026-09-16T09:54:38.409280+00:00",
+  "device_environment": {
+    "os": "Linux",
+    "arch": "x86_64",
+    "python_version": "3.12.13"
+  }
+}

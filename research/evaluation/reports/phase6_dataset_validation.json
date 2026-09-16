@@ -1,0 +1,7 @@
+{
+  "manifest_path": "research/datasets/manifests/phase6_dataset_manifest.csv",
+  "total_samples": 15,
+  "dataset_type": "fixture_validation_set",
+  "human_speech_data_status": "DATA_REQUIRED",
+  "status": "valid"
+}

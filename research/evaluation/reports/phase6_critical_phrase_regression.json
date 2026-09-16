@@ -1,0 +1,6 @@
+{
+  "experiment_id": "phase6_regression_v001",
+  "non_target_speaker_regressions": 0,
+  "critical_phrase_regressions": 0,
+  "status": "PASSED_ZERO_REGRESSIONS"
+}

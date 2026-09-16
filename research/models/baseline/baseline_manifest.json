@@ -1,0 +1,13 @@
+{
+  "model_id": "english_edge_v1",
+  "model_family": "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17",
+  "hashes": {
+    "encoder.onnx": "3810755ce7c3ab26b42a8bcf39d191308fa27fb0f53358823ba46141d03b7eb3",
+    "decoder.onnx": "21e2a2acd961b3ac72f55be2f10f1a285e1b0b0ba010d7c0b6eab141411b163c",
+    "joiner.onnx": "e085d73b593cf9b0707f370dbd656d58327d3fe36d80d849202ef81df02cb01e",
+    "tokens.txt": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb"
+  },
+  "runtime_version": "sherpa_onnx_1.13.8",
+  "timestamp": "2026-09-16T09:54:36.200850+00:00",
+  "status": "FROZEN"
+}

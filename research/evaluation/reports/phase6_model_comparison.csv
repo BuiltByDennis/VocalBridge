@@ -1,0 +1,4 @@
+architecture,model_size_mb,ram_mb,rtf,mobile_export_status,recommendation
+Zipformer 20M INT8,43.6,85,0.039,PRODUCITON_READY,Primary Production Baseline
+Conformer Small INT8,65.0,110,0.065,MOBILE_COMPATIBLE,Research Alternative
+Whisper Tiny INT8,75.0,150,0.120,REQUIRES_NON_STREAMING,Non-streaming Research Benchmarking Only
