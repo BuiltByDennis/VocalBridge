@@ -1,0 +1,64 @@
+{
+  "audit_version": "7A",
+  "project_name": "Kasa Me",
+  "tagline": "Personalized Edge Speech Recognition for Assistive Communication",
+  "client_architecture": {
+    "framework": "Flutter (Dart 3.x)",
+    "platform_targets": ["Android (Primary)", "iOS"],
+    "routing": "go_router",
+    "theme": "AccessibleTheme (Material 3)",
+    "state_management": "flutter_riverpod"
+  },
+  "asr_pipeline": {
+    "model_id": "english_edge_v1",
+    "architecture": "Streaming Zipformer Transducer",
+    "runtime": "sherpa_onnx + ONNX Runtime",
+    "audio_format": "16000 Hz Mono PCM16",
+    "feature_dim": 80,
+    "vad_implementation": "EnergyVad (RMS-based)",
+    "vad_config": {
+      "sample_rate": 16000,
+      "threshold_rms": 250.0,
+      "max_silence_frames": 15
+    }
+  },
+  "personalization_system": {
+    "neural_weights_frozen": true,
+    "components": [
+      "PersonalVocabulary",
+      "PhraseBiasing",
+      "WordCorrectionMemory",
+      "PhraseCorrectionMemory",
+      "PersonalizationSafetyGuard",
+      "NumberNormalization"
+    ]
+  },
+  "database": {
+    "orm": "Drift",
+    "engine": "SQLite",
+    "schema_version": 2,
+    "database_file": "kasa_me.sqlite",
+    "tables": [
+      "Profiles",
+      "SpeechCorrections",
+      "PhrasebookEntries",
+      "PersonalProfiles",
+      "PersonalVocabulary",
+      "PersonalPhrases",
+      "WordCorrections",
+      "PhraseCorrections",
+      "RecognitionEvents"
+    ]
+  },
+  "offline_integrity": {
+    "cloud_dependencies": false,
+    "remote_inference": false,
+    "telemetry": false,
+    "100_percent_offline": true
+  },
+  "research_scaffold": {
+    "phase7_scaffold": "research/datasets/ugspeechdata/",
+    "ugspeechdata_is_atypical_speech": false,
+    "ugspeechdata_classification": "Generic Ghanaian-language speech resource"
+  }
+}

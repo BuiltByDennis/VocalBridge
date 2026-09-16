@@ -1,0 +1,47 @@
+{
+  "report_type": "baseline_model_report",
+  "phase": "7A",
+  "timestamp": "2026-09-16T12:00:00Z",
+  "model_metadata": {
+    "model_id": "english_edge_v1",
+    "display_name": "English (Ghana) Edge Zipformer v1",
+    "language": "en_GH",
+    "architecture": "Streaming Zipformer Transducer",
+    "base_model": "sherpa-onnx-streaming-zipformer-en-20M-2023-02-17",
+    "quantization": "INT8",
+    "sample_rate": 16000,
+    "estimated_size_mb": 44,
+    "actual_size_bytes": 43649301
+  },
+  "verification": {
+    "status": "PASS",
+    "manifest_file": "research/models/baseline/baseline_manifest.json",
+    "verification_script": "research/models/baseline/verify_baseline_model.py",
+    "files": {
+      "encoder.onnx": {
+        "path": "kasa_me/assets/models/asr/english/encoder.onnx",
+        "size_bytes": 42845182,
+        "sha256": "3810755ce7c3ab26b42a8bcf39d191308fa27fb0f53358823ba46141d03b7eb3",
+        "status": "PASS"
+      },
+      "decoder.onnx": {
+        "path": "kasa_me/assets/models/asr/english/decoder.onnx",
+        "size_bytes": 539499,
+        "sha256": "21e2a2acd961b3ac72f55be2f10f1a285e1b0b0ba010d7c0b6eab141411b163c",
+        "status": "PASS"
+      },
+      "joiner.onnx": {
+        "path": "kasa_me/assets/models/asr/english/joiner.onnx",
+        "size_bytes": 259572,
+        "sha256": "e085d73b593cf9b0707f370dbd656d58327d3fe36d80d849202ef81df02cb01e",
+        "status": "PASS"
+      },
+      "tokens.txt": {
+        "path": "kasa_me/assets/models/asr/english/tokens.txt",
+        "size_bytes": 5048,
+        "sha256": "49e3c2646595fd907228b3c6787069658f67b17377c60aeb8619c4551b2316fb",
+        "status": "PASS"
+      }
+    }
+  }
+}
