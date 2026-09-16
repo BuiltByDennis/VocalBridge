@@ -10,11 +10,11 @@
     "number_accuracy": "0.00%"
   },
   "latency_ms": {
-    "mean": 66.64285714285714,
-    "median": 64,
-    "p90": 76,
-    "p95": 87,
-    "mean_rtf": 0.044
+    "mean": 55.714285714285715,
+    "median": 57,
+    "p90": 60,
+    "p95": 60,
+    "mean_rtf": 0.037
   },
   "speaker_breakdown": {
     "spk001": {

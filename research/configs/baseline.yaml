@@ -1,5 +1,5 @@
 experiment_id: baseline_en_gh_v001
-dataset_version: kasa_me_dataset_v0.1
+dataset_version: kasa_me_dataset_v0.1_fixture
 
 model:
   id: english_edge_v1

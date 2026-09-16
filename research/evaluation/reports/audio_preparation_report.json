@@ -1,6 +1,82 @@
 {
-  "total": 0,
-  "processed": 0,
+  "total": 15,
+  "processed": 15,
   "rejected": 0,
-  "details": []
+  "details": [
+    {
+      "file": "research/datasets/fixtures/sample_001.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_003.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_013.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_015.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_012.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_002.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_010.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_008.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_014.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_011.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_007.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_004.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_005.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_006.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    },
+    {
+      "file": "research/datasets/fixtures/sample_009.wav",
+      "status": "ok",
+      "message": "Valid 16kHz mono PCM16 (1.50s)"
+    }
+  ]
 }

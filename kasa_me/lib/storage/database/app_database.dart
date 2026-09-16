@@ -9,12 +9,39 @@ import 'tables.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Profiles, SpeechCorrections, PhrasebookEntries])
+@DriftDatabase(tables: [
+  Profiles,
+  SpeechCorrections,
+  PhrasebookEntries,
+  PersonalProfiles,
+  PersonalVocabulary,
+  PersonalPhrases,
+  WordCorrections,
+  PhraseCorrections,
+  RecognitionEvents,
+])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          await m.createAll();
+        },
+        onUpgrade: (m, from, to) async {
+          if (from == 1) {
+            await m.createTable(personalProfiles);
+            await m.createTable(personalVocabulary);
+            await m.createTable(personalPhrases);
+            await m.createTable(wordCorrections);
+            await m.createTable(phraseCorrections);
+            await m.createTable(recognitionEvents);
+          }
+        },
+      );
 
   Future<int> insertProfile(ProfilesCompanion profile) => into(profiles).insert(profile);
   Future<List<Profile>> getAllProfiles() => select(profiles).get();
