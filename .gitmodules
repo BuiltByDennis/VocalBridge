@@ -1,0 +1,3 @@
+[submodule "research/datasets/ugspeechdata/source"]
+	path = research/datasets/ugspeechdata/source
+	url = https://github.com/HCI-LAB-UGSPEECHDATA/speech_data_ghana_ug.git
