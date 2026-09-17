@@ -1,0 +1,34 @@
+{
+  "dataset": "UGAkan-ImpairedSpeechData",
+  "audio_count": 14312,
+  "duration_hours": 50.3575900000001,
+  "mean_duration_sec": 12.666805757406372,
+  "std_duration_sec": 7.754278742962668,
+  "max_duration_sec": 60.084,
+  "min_duration_sec": 1.476,
+  "speaker_count": 56,
+  "missing_audio": 0,
+  "corrupt_audio": 0,
+  "duplicates": 432,
+  "environments": {
+    "Other": 3075,
+    "Indoor": 2254,
+    "Outdoor": 7706,
+    "Studio": 982,
+    "In a car": 295
+  },
+  "genders": {
+    "Female": 7558,
+    "Male": 6754
+  },
+  "aetiologies": {
+    "Cerebral palsy": 2627,
+    "Cerebral Palsy": 5089,
+    "Cleft": 1826,
+    "Stammering": 4475,
+    "Stroke": 295
+  },
+  "status": "VERIFIED",
+  "population_type": "impaired_speech",
+  "license_status": "LICENSE_REVIEW_REQUIRED"
+}

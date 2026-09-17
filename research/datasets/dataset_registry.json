@@ -1,0 +1,17 @@
+{
+  "datasets": [
+    {
+      "dataset_id": "UGSpeechData",
+      "population_type": "general_speech",
+      "verification_status": "NOT_FOUND"
+    },
+    {
+      "dataset_id": "UGAkan-ImpairedSpeechData",
+      "population_type": "impaired_speech",
+      "verification_status": "VERIFIED",
+      "verified_audio_count": 14312,
+      "verified_duration_hours": 50.3575900000001,
+      "license_status": "LICENSE_REVIEW_REQUIRED"
+    }
+  ]
+}
