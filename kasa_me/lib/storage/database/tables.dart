@@ -38,6 +38,7 @@ class PersonalProfiles extends Table {
   BoolColumn get enablePersonalVocabulary => boolean().withDefault(const Constant(true))();
   BoolColumn get enablePhraseBiasing => boolean().withDefault(const Constant(true))();
   BoolColumn get enableCorrectionMemory => boolean().withDefault(const Constant(true))();
+  BoolColumn get isCalibrated => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 

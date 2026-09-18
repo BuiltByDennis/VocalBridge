@@ -29,6 +29,7 @@ class ProfileRepository {
     bool? enablePhraseBiasing,
     bool? enableCorrectionMemory,
     double? minConfidenceThreshold,
+    bool? isCalibrated,
   }) async {
     await (_db.update(_db.personalProfiles)..where((t) => t.profileId.equals(profileId))).write(
       PersonalProfilesCompanion(
@@ -36,6 +37,7 @@ class ProfileRepository {
         enablePhraseBiasing: enablePhraseBiasing != null ? Value(enablePhraseBiasing) : const Value.absent(),
         enableCorrectionMemory: enableCorrectionMemory != null ? Value(enableCorrectionMemory) : const Value.absent(),
         minConfidenceThreshold: minConfidenceThreshold != null ? Value(minConfidenceThreshold) : const Value.absent(),
+        isCalibrated: isCalibrated != null ? Value(isCalibrated) : const Value.absent(),
         updatedAt: Value(DateTime.now()),
       ),
     );
