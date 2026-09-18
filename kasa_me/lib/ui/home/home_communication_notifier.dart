@@ -9,6 +9,8 @@ import '../../speech/engine/speech_engine.dart';
 import '../../speech/engine/speech_engine_factory.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
+import '../../speech/tts/tts_engine.dart';
+import '../../speech/tts/mock_tts_engine.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
 import '../../storage/database/app_database.dart';
 
@@ -23,6 +25,7 @@ enum UiEngineState {
 
 class HomeCommunicationState {
   final UiEngineState engineState;
+  final bool isSpeaking;
   final String selectedLanguage;
   final AsrModelConfig activeModel;
   final String partialTranscript;
@@ -38,6 +41,7 @@ class HomeCommunicationState {
 
   const HomeCommunicationState({
     this.engineState = UiEngineState.notLoaded,
+    this.isSpeaking = false,
     this.selectedLanguage = 'English (Ghana)',
     required this.activeModel,
     this.partialTranscript = '',
@@ -54,6 +58,7 @@ class HomeCommunicationState {
 
   HomeCommunicationState copyWith({
     UiEngineState? engineState,
+    bool? isSpeaking,
     String? selectedLanguage,
     AsrModelConfig? activeModel,
     String? partialTranscript,
@@ -69,6 +74,7 @@ class HomeCommunicationState {
   }) {
     return HomeCommunicationState(
       engineState: engineState ?? this.engineState,
+      isSpeaking: isSpeaking ?? this.isSpeaking,
       selectedLanguage: selectedLanguage ?? this.selectedLanguage,
       activeModel: activeModel ?? this.activeModel,
       partialTranscript: partialTranscript ?? this.partialTranscript,
@@ -92,6 +98,9 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   late PersonalizationPipeline _personalizationPipeline;
   final PhrasebookRepository _phrasebookRepository;
   
+  // TTS Engine
+  late final TtsEngine _ttsEngine;
+
   StreamSubscription<SpeechEngineEvent>? _eventSub;
   StreamSubscription<List<PhrasebookEntry>>? _phrasebookSub;
 
@@ -99,6 +108,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       : _phrasebookRepository = phrasebookRepository,
         super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
     _personalizationPipeline = PersonalizationPipeline();
+    _ttsEngine = MockTtsEngine();
     _initialize();
   }
 
@@ -123,6 +133,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     _eventSub = _speechEngine.events.listen(_handleEngineEvent);
 
     try {
+      await _ttsEngine.initialize();
       await _pipeline.initialize();
       final loadTime = DateTime.now().difference(startTime);
       state = state.copyWith(
@@ -226,11 +237,34 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     state = state.copyWith(rawTranscript: '', personalizedTranscript: '', partialTranscript: '');
   }
 
+  Future<void> speakTranscript() async {
+    final textToSpeak = state.personalizedTranscript.isNotEmpty 
+        ? state.personalizedTranscript 
+        : state.rawTranscript;
+
+    if (textToSpeak.trim().isEmpty) return;
+
+    state = state.copyWith(isSpeaking: true);
+    try {
+      await _ttsEngine.speak(textToSpeak);
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to speak: $e');
+    } finally {
+      state = state.copyWith(isSpeaking: false);
+    }
+  }
+
+  Future<void> stopSpeaking() async {
+    await _ttsEngine.stop();
+    state = state.copyWith(isSpeaking: false);
+  }
+
   @override
   void dispose() {
     _eventSub?.cancel();
     _phrasebookSub?.cancel();
     _pipeline.dispose();
+    _ttsEngine.dispose();
     super.dispose();
   }
 }

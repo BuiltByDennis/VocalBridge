@@ -173,19 +173,32 @@ class HomeScreen extends ConsumerWidget {
                           : theme.colorScheme.onSurface,
                     ),
                   ),
-                  if (state.personalizedTranscript.isNotEmpty)
+                  if (state.personalizedTranscript.isNotEmpty || state.rawTranscript.isNotEmpty)
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.copy),
-                          tooltip: 'Copy Transcript',
+                          icon: Icon(state.isSpeaking ? Icons.stop : Icons.volume_up),
+                          tooltip: state.isSpeaking ? 'Stop Speaking' : 'Speak Text',
+                          color: state.isSpeaking ? theme.colorScheme.primary : null,
                           onPressed: () {
-                            Clipboard.setData(ClipboardData(text: state.personalizedTranscript));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Copied to clipboard')),
-                            );
+                            if (state.isSpeaking) {
+                              notifier.stopSpeaking();
+                            } else {
+                              notifier.speakTranscript();
+                            }
                           },
                         ),
+                        if (state.personalizedTranscript.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.copy),
+                            tooltip: 'Copy Transcript',
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: state.personalizedTranscript));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Copied to clipboard')),
+                              );
+                            },
+                          ),
                         IconButton(
                           icon: const Icon(Icons.clear),
                           tooltip: 'Clear Text',
