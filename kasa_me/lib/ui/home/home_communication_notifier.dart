@@ -193,6 +193,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         );
         break;
       case SpeechEngineError(message: final msg):
+        HapticFeedback.vibrate();
         state = state.copyWith(
           engineState: UiEngineState.error,
           errorMessage: msg,
@@ -204,6 +205,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   Future<void> startPushToTalk() async {
     if (state.engineState != UiEngineState.ready) return;
     try {
+      HapticFeedback.heavyImpact();
       await _pipeline.startPushToTalkSession();
     } catch (e) {
       state = state.copyWith(
@@ -216,6 +218,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   Future<void> stopPushToTalk() async {
     if (state.engineState != UiEngineState.listening) return;
     try {
+      HapticFeedback.heavyImpact();
       await _pipeline.stopPushToTalkSession();
     } catch (e) {
       state = state.copyWith(

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../speech/calibration/calibration_service.dart';
@@ -89,6 +90,7 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
   }
 
   void _startRecording() {
+    HapticFeedback.heavyImpact();
     setState(() {
       _isRecording = true;
       _lastRecognized = null;
@@ -98,6 +100,7 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
   }
 
   void _stopRecording() {
+    HapticFeedback.heavyImpact();
     setState(() {
       _isRecording = false;
       _isProcessing = true;
@@ -200,38 +203,42 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
               const Spacer(),
               
               // Push to Talk Button
-              GestureDetector(
-                onTapDown: (_) => _startRecording(),
-                onTapUp: (_) => _stopRecording(),
-                onTapCancel: () => _stopRecording(),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: _isRecording ? theme.colorScheme.error : theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(50),
-                    boxShadow: _isRecording
-                        ? [BoxShadow(color: theme.colorScheme.error.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)]
-                        : [],
-                  ),
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _isRecording ? Icons.mic : Icons.mic_none,
-                          color: theme.colorScheme.onPrimary,
-                          size: 40,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _isRecording ? 'Listening...' : 'Hold to Speak',
-                          style: theme.textTheme.titleLarge?.copyWith(
+              Semantics(
+                button: true,
+                label: 'Push to talk button. Hold down to record, release to stop.',
+                child: GestureDetector(
+                  onTapDown: (_) => _startRecording(),
+                  onTapUp: (_) => _stopRecording(),
+                  onTapCancel: () => _stopRecording(),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: _isRecording ? theme.colorScheme.error : theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(50),
+                      boxShadow: _isRecording
+                          ? [BoxShadow(color: theme.colorScheme.error.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)]
+                          : [],
+                    ),
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _isRecording ? Icons.mic : Icons.mic_none,
                             color: theme.colorScheme.onPrimary,
-                            fontWeight: FontWeight.bold,
+                            size: 40,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Text(
+                            _isRecording ? 'Listening...' : 'Hold to Speak',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: theme.colorScheme.onPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -239,9 +246,16 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
               const SizedBox(height: 16),
               
               // Skip button
-              TextButton(
-                onPressed: _isRecording ? null : _moveToNextStep,
-                child: const Text('Skip this phrase'),
+              Semantics(
+                button: true,
+                label: 'Skip this phrase',
+                child: TextButton(
+                  onPressed: _isRecording ? null : _moveToNextStep,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size.fromHeight(56),
+                  ),
+                  child: const Text('Skip this phrase'),
+                ),
               ),
             ],
           ),

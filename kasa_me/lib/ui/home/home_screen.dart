@@ -19,23 +19,39 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Kasa Me'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.tune),
-            tooltip: 'Personalization Settings',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PersonalizationSettingsScreen()),
-              );
-            },
+          Semantics(
+            button: true,
+            label: 'Personalization Settings',
+            child: SizedBox(
+              width: 56,
+              height: 56,
+              child: IconButton(
+                icon: const Icon(Icons.tune),
+                tooltip: 'Personalization Settings',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PersonalizationSettingsScreen()),
+                  );
+                },
+              ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(IconData(0xe1d5, fontFamily: 'MaterialIcons')),
-            tooltip: 'ASR Diagnostics',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AsrDiagnosticsScreen()),
-              );
-            },
+          Semantics(
+            button: true,
+            label: 'ASR Diagnostics',
+            child: SizedBox(
+              width: 56,
+              height: 56,
+              child: IconButton(
+                icon: const Icon(IconData(0xe1d5, fontFamily: 'MaterialIcons')),
+                tooltip: 'ASR Diagnostics',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AsrDiagnosticsScreen()),
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
@@ -69,17 +85,24 @@ class HomeScreen extends ConsumerWidget {
 
               // Quick Phrase Access Bar
               SizedBox(
-                height: 44,
+                height: 64,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: state.quickPhrases.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (ctx, idx) {
                     final phrase = state.quickPhrases[idx];
-                    return ActionChip(
-                      label: Text(phrase.phrase, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      backgroundColor: theme.colorScheme.primaryContainer,
-                      onPressed: () => notifier.selectQuickPhrase(phrase),
+                    return Semantics(
+                      button: true,
+                      label: 'Quick phrase: ${phrase.phrase}',
+                      child: SizedBox(
+                        height: 56,
+                        child: ActionChip(
+                          label: Text(phrase.phrase, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          onPressed: () => notifier.selectQuickPhrase(phrase),
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -145,22 +168,32 @@ class HomeScreen extends ConsumerWidget {
                           ),
                         if (state.personalizedTranscript.isNotEmpty)
                           Wrap(
-                            spacing: 6.0,
-                            runSpacing: 4.0,
+                            spacing: 12.0,
+                            runSpacing: 12.0,
                             children: state.personalizedTranscript.split(' ').map((word) {
-                              return InkWell(
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  _showWordCorrectionModal(context, notifier, word);
-                                },
-                                borderRadius: BorderRadius.circular(4.0),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-                                  child: Text(
-                                    word,
-                                    style: theme.textTheme.headlineMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.colorScheme.onSurface,
+                              return Semantics(
+                                button: true,
+                                label: 'Correct word: $word',
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    _showWordCorrectionModal(context, notifier, word);
+                                  },
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: Container(
+                                    constraints: const BoxConstraints(minHeight: 56, minWidth: 56),
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(8.0),
+                                    ),
+                                    child: Text(
+                                      word,
+                                      style: theme.textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.colorScheme.onSurface,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -205,37 +238,61 @@ class HomeScreen extends ConsumerWidget {
                   if (state.personalizedTranscript.isNotEmpty || state.rawTranscript.isNotEmpty)
                     Row(
                       children: [
-                        IconButton(
-                          icon: Icon(state.isSpeaking ? Icons.stop : Icons.volume_up),
-                          tooltip: state.isSpeaking ? 'Stop Speaking' : 'Speak Text',
-                          color: state.isSpeaking ? theme.colorScheme.primary : null,
-                          onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
-                              ? null
-                              : () {
-                                  if (state.isSpeaking) {
-                                    notifier.stopSpeaking();
-                                  } else {
-                                    notifier.speakTranscript();
-                                  }
-                                },
+                        Semantics(
+                          button: true,
+                          label: state.isSpeaking ? 'Stop speaking' : 'Speak transcript',
+                          child: SizedBox(
+                            width: 56,
+                            height: 56,
+                            child: IconButton(
+                              icon: Icon(state.isSpeaking ? Icons.stop : Icons.volume_up),
+                              tooltip: state.isSpeaking ? 'Stop Speaking' : 'Speak Text',
+                              color: state.isSpeaking ? theme.colorScheme.primary : null,
+                              onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
+                                  ? null
+                                  : () {
+                                      if (state.isSpeaking) {
+                                        notifier.stopSpeaking();
+                                      } else {
+                                        notifier.speakTranscript();
+                                      }
+                                    },
+                            ),
+                          ),
                         ),
                         if (state.personalizedTranscript.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.copy),
-                            tooltip: 'Copy Transcript',
-                            onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
-                                ? null
-                                : () {
-                                    Clipboard.setData(ClipboardData(text: state.personalizedTranscript));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Copied to clipboard')),
-                                    );
-                                  },
+                          Semantics(
+                            button: true,
+                            label: 'Copy transcript',
+                            child: SizedBox(
+                              width: 56,
+                              height: 56,
+                              child: IconButton(
+                                icon: const Icon(Icons.copy),
+                                tooltip: 'Copy Transcript',
+                                onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
+                                    ? null
+                                    : () {
+                                        Clipboard.setData(ClipboardData(text: state.personalizedTranscript));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Copied to clipboard')),
+                                        );
+                                      },
+                              ),
+                            ),
                           ),
-                        IconButton(
-                          icon: const Icon(Icons.clear),
-                          tooltip: 'Clear Text',
-                          onPressed: notifier.clearTranscript,
+                        Semantics(
+                          button: true,
+                          label: 'Clear transcript',
+                          child: SizedBox(
+                            width: 56,
+                            height: 56,
+                            child: IconButton(
+                              icon: const Icon(Icons.clear),
+                              tooltip: 'Clear Text',
+                              onPressed: notifier.clearTranscript,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -245,43 +302,47 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               // Large Push-to-Talk Primary Action Button
-              SizedBox(
-                height: 80,
-                child: Listener(
-                  onPointerDown: (_) => notifier.startPushToTalk(),
-                  onPointerUp: (_) => notifier.stopPushToTalk(),
-                  onPointerCancel: (_) => notifier.stopPushToTalk(),
-                  child: Material(
-                    color: state.engineState == UiEngineState.listening
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(20.0),
-                    child: InkWell(
+              Semantics(
+                button: true,
+                label: 'Push to talk button. Hold down to record, release to stop.',
+                child: SizedBox(
+                  height: 80,
+                  child: Listener(
+                    onPointerDown: (_) => notifier.startPushToTalk(),
+                    onPointerUp: (_) => notifier.stopPushToTalk(),
+                    onPointerCancel: (_) => notifier.stopPushToTalk(),
+                    child: Material(
+                      color: state.engineState == UiEngineState.listening
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(20.0),
-                      onTap: () {},
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            state.engineState == UiEngineState.listening
-                                ? Icons.mic
-                                : Icons.mic_none,
-                            size: 36,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            state.engineState == UiEngineState.listening
-                                ? 'Listening... (Release to Stop)'
-                                : state.engineState == UiEngineState.processing
-                                    ? 'Processing...'
-                                    : 'Speak (Hold to Talk)',
-                            style: theme.textTheme.titleLarge?.copyWith(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20.0),
+                        onTap: () {},
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              state.engineState == UiEngineState.listening
+                                  ? Icons.mic
+                                  : Icons.mic_none,
+                              size: 36,
                               color: theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 12),
+                            Text(
+                              state.engineState == UiEngineState.listening
+                                  ? 'Listening... (Release to Stop)'
+                                  : state.engineState == UiEngineState.processing
+                                      ? 'Processing...'
+                                      : 'Speak (Hold to Talk)',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: theme.colorScheme.onPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
