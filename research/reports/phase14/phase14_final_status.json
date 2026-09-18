@@ -1,0 +1,11 @@
+{
+  "phase": 14,
+  "status": "completed",
+  "reports": [
+    "research/reports/phase14/phase14_implementation_report.md",
+    "research/reports/phase14/phase14_interaction_state_machine.md",
+    "research/reports/phase14/phase14_accessibility_report.md",
+    "research/reports/phase14/phase14_test_report.md",
+    "research/reports/phase14/phase14_privacy_offline_report.md"
+  ]
+}

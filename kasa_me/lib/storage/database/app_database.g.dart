@@ -3811,7 +3811,7 @@ final class $$ProfilesTableReferences
   $$SpeechCorrectionsTableProcessedTableManager get speechCorrectionsRefs {
     final manager =
         $$SpeechCorrectionsTableTableManager($_db, $_db.speechCorrections)
-            .filter((f) => f.profileId.id.sqlEquals($_itemColumn<int>('id')!));
+            .filter((f) => f.profileId.id($_item.id));
 
     final cache =
         $_typedResult.readTableOrNull(_speechCorrectionsRefsTable($_db));
@@ -3828,7 +3828,7 @@ final class $$ProfilesTableReferences
   $$PhrasebookEntriesTableProcessedTableManager get phrasebookEntriesRefs {
     final manager =
         $$PhrasebookEntriesTableTableManager($_db, $_db.phrasebookEntries)
-            .filter((f) => f.profileId.id.sqlEquals($_itemColumn<int>('id')!));
+            .filter((f) => f.profileId.id($_item.id));
 
     final cache =
         $_typedResult.readTableOrNull(_phrasebookEntriesRefsTable($_db));
@@ -4054,8 +4054,7 @@ class $$ProfilesTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (speechCorrectionsRefs)
-                    await $_getPrefetchedData<Profile, $ProfilesTable,
-                            SpeechCorrection>(
+                    await $_getPrefetchedData(
                         currentTable: table,
                         referencedTable: $$ProfilesTableReferences
                             ._speechCorrectionsRefsTable(db),
@@ -4067,8 +4066,7 @@ class $$ProfilesTableTableManager extends RootTableManager<
                                 .where((e) => e.profileId == item.id),
                         typedResults: items),
                   if (phrasebookEntriesRefs)
-                    await $_getPrefetchedData<Profile, $ProfilesTable,
-                            PhrasebookEntry>(
+                    await $_getPrefetchedData(
                         currentTable: table,
                         referencedTable: $$ProfilesTableReferences
                             ._phrasebookEntriesRefsTable(db),
@@ -4126,10 +4124,8 @@ final class $$SpeechCorrectionsTableReferences extends BaseReferences<
           $_aliasNameGenerator(db.speechCorrections.profileId, db.profiles.id));
 
   $$ProfilesTableProcessedTableManager get profileId {
-    final $_column = $_itemColumn<int>('profile_id')!;
-
     final manager = $$ProfilesTableTableManager($_db, $_db.profiles)
-        .filter((f) => f.id.sqlEquals($_column));
+        .filter((f) => f.id($_item.profileId));
     final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
@@ -4405,10 +4401,8 @@ final class $$PhrasebookEntriesTableReferences extends BaseReferences<
           $_aliasNameGenerator(db.phrasebookEntries.profileId, db.profiles.id));
 
   $$ProfilesTableProcessedTableManager get profileId {
-    final $_column = $_itemColumn<int>('profile_id')!;
-
     final manager = $$ProfilesTableTableManager($_db, $_db.profiles)
-        .filter((f) => f.id.sqlEquals($_column));
+        .filter((f) => f.id($_item.profileId));
     final item = $_typedResult.readTableOrNull(_profileIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(

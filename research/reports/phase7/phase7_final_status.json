@@ -1,0 +1,44 @@
+{
+  "phase": "7",
+  "status": "PASS_WITH_BLOCKERS",
+  "production_baseline": {
+    "model_id": "english_edge_v1",
+    "verification_before": "PASS",
+    "verification_after": "PASS",
+    "modified": false
+  },
+  "datasets": {
+    "ugspeechdata": {
+      "status": "NOT_AVAILABLE",
+      "local_audio_available": false
+    },
+    "ugakan_impaired_speech": {
+      "status": "PARTIALLY_READY",
+      "speaker_disjoint_split": "PASS",
+      "duplicate_disjoint_split": "PASS",
+      "license_review": "LICENSE_REVIEW_REQUIRED"
+    }
+  },
+  "ewe": {
+    "status": "NOT_FOUND"
+  },
+  "reproducibility": {
+    "split_deterministic": "PASS",
+    "manifest_present": "PASS",
+    "validator": "PASS"
+  },
+  "leakage": {
+    "speaker": "RESOLVED_VIA_SPLIT",
+    "duplicate": "RESOLVED_VIA_EXCLUSION",
+    "transcript": "OBSERVED",
+    "session": "NOT_DETERMINED"
+  },
+  "training_performed": false,
+  "adaptation_performed": false,
+  "production_model_modified": false,
+  "phase8_blockers": [
+    "LICENSE_REVIEW_REQUIRED",
+    "UGSpeechData_NOT_AVAILABLE",
+    "Audio_QC_NOT_COMPLETED"
+  ]
+}

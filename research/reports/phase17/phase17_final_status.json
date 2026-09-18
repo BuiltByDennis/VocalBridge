@@ -1,0 +1,36 @@
+{
+  "phase": 17,
+  "name": "Ghanaian Language ASR Research",
+  "status": "PASS",
+  "production_asr_changed": false,
+  "production_model_replaced": false,
+  "asr_retraining_completed": false,
+  "asr_finetuning_completed": false,
+  "ghanaian_language_production_support": false,
+  "research_complete": true,
+  "previous_test_count": 124,
+  "phase17_test_count": 0,
+  "total_test_count": 124,
+  "tests_passed": 124,
+  "tests_failed": 0,
+  "flutter_analyze_errors": 0,
+  "datasets_researched": "Mozilla Common Voice, FLEURS, ALFFA, UGAkan",
+  "datasets_license_verified": "Common Voice (CC0), FLEURS (CC-BY)",
+  "datasets_requiring_review": "UGAkan",
+  "models_researched": "Sherpa-ONNX, Whisper, Meta MMS, Seamless M4T",
+  "offline_feasibility": "High (If Zipformer/Whisper.cpp), Zero (If MMS)",
+  "android_feasibility": "High (If Zipformer/Whisper.cpp), Zero (If MMS)",
+  "atypical_speech_gap": "Critical. Zero data exists for atypical Ghanaian speech.",
+  "ghanaian_language_asr_gap": "High. Very few offline-capable, commercially-cleared, pre-trained ONNX models exist.",
+  "tts_gap": "Critical. No single-speaker studio datasets available for local TTS training.",
+  "code_switching_status": "Unsupported. Monolingual datasets penalize code-switching, preventing model robustness.",
+  "safety_gap": "Critical. Phase 12 English rules will fail on Ghanaian languages; requires complete translation.",
+  "recommendation_for_phase18": "Focus on Atypical-Speech Adaptation (English) rather than raw Ghanaian-language ASR, aligning strictly with the accessibility mission.",
+  "limitations": [
+    "No commercial open-source Twi model currently exists for Sherpa-ONNX."
+  ],
+  "blockers": [
+    "UGAkan commercial license unverified.",
+    "MMS models are non-commercial (CC-BY-NC)."
+  ]
+}

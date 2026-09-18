@@ -1,0 +1,18 @@
+{
+  "total_files": 14312,
+  "total_duration": 50.357589999999995,
+  "mean_duration": 12.666805757406372,
+  "median_duration": 11.484,
+  "std_duration": 7.754278742962668,
+  "min_duration": 1.476,
+  "max_duration": 60.084,
+  "duplicate_groups": 432,
+  "duplicate_files": 864,
+  "cross_speaker_exact": 339,
+  "cross_aet_exact": 0,
+  "cross_env_exact": 0,
+  "near_duplicate_candidates": 13,
+  "speaker_count": 56,
+  "smallest_speaker_count": 16,
+  "largest_speaker_count": 1378
+}

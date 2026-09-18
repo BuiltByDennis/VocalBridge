@@ -1,0 +1,13 @@
+{
+  "asset": "Ewe ASR Model/Split",
+  "status": "NOT_FOUND",
+  "located_paths": [],
+  "leakage": {
+    "speaker_leakage": "NOT_DETERMINED",
+    "exact_duplicate_leakage": "NOT_DETERMINED",
+    "transcript_overlap": "NOT_DETERMINED",
+    "audio_reference_overlap": "NOT_DETERMINED",
+    "metadata_leakage": "NOT_DETERMINED",
+    "session_leakage": "NOT_DETERMINED"
+  }
+}

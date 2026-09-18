@@ -1,0 +1,14 @@
+{
+  "dataset_id": "UGAkan-ImpairedSpeechData",
+  "dataset_version": "1",
+  "split_seed": 42,
+  "split_algorithm_version": "1.0",
+  "train_speakers": 45,
+  "dev_speakers": 5,
+  "test_speakers": 5,
+  "train_utterances": 11817,
+  "dev_utterances": 483,
+  "test_utterances": 1334,
+  "excluded_utterances": 678,
+  "contaminated_duplicate_groups": 339
+}

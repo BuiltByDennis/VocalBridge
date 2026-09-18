@@ -1,0 +1,41 @@
+{
+  "phase": 9,
+  "title": "Offline Text-to-Speech & Speak Back Capability",
+  "date": "2026-09-17",
+  "status": "PASS_WITH_BLOCKERS",
+  "blockers": [
+    "TTS_MODEL_BLOCKED_LICENSE_REVIEW: VITS model assets are not bundled due to lack of a legally cleared, commercially viable offline model. MockSpeechSynthesisEngine handles UI runtime successfully."
+  ],
+  "acceptance_criteria": {
+    "offline_tts_architecture_implemented": "PASS — SpeechSynthesisEngine + SherpaSpeechSynthesisEngine created",
+    "no_cloud_network_dependency": "PASS — Verified via offline_assurance_test.dart. No network calls or HTTP packages used.",
+    "production_asr_model_unchanged": "PASS — ASR engine completely untouched",
+    "text_preprocessing_implemented": "PASS — TtsPreprocessor handles Ghanaian currency formatting and punctuation normalization",
+    "ui_speak_action_added": "PASS — Speak button integrated into Transcript Area and Quick Phrases",
+    "settings_integration_added": "PASS — TtsSettingsScreen allows adjusting speech rate and viewing diagnostic status",
+    "tests_pass": "PASS — Unit, integration, and offline assurance tests written and passing",
+    "documentation_complete": "PASS — Implementation report created"
+  },
+  "files_created": [
+    "lib/speech/tts/speech_synthesis_engine.dart",
+    "lib/speech/tts/sherpa_speech_synthesis_engine.dart",
+    "lib/speech/tts/mock_speech_synthesis_engine.dart",
+    "lib/speech/tts/tts_preprocessor.dart",
+    "lib/state/tts_notifier.dart",
+    "lib/ui/settings/tts_settings_screen.dart",
+    "test/speech/tts_preprocessor_test.dart",
+    "test/speech/mock_tts_engine_test.dart",
+    "test/tts_integration_test.dart",
+    "test/offline_assurance_test.dart",
+    "research/reports/phase9/phase9_implementation_report.md",
+    "research/reports/phase9/phase9_final_status.json"
+  ],
+  "files_modified": [
+    "lib/state/app_providers.dart",
+    "lib/ui/home/home_screen.dart",
+    "lib/ui/settings/settings_screen.dart"
+  ],
+  "asr_model_modified": false,
+  "network_dependencies_added": false,
+  "out_of_scope_features_implemented": []
+}

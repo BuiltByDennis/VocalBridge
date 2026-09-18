@@ -1,0 +1,11 @@
+{
+  "dataset": "UGSpeechData",
+  "status": "NOT_AVAILABLE",
+  "languages": {
+    "Akan": "NOT_AVAILABLE",
+    "Ewe": "NOT_AVAILABLE",
+    "Dagbani": "NOT_AVAILABLE",
+    "Dagaare": "NOT_AVAILABLE",
+    "Ikposo": "NOT_AVAILABLE"
+  }
+}

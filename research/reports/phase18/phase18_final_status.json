@@ -1,0 +1,42 @@
+{
+  "phase": 18,
+  "name": "Atypical Speech Adaptation & Ghanaian-Language Research Prototype",
+  "status": "PASS",
+  "production_asr_modified": false,
+  "production_model_changed": false,
+  "previous_test_count": 124,
+  "phase18_test_count": 0,
+  "total_test_count": 124,
+  "flutter_analyze_errors": 0,
+  "datasets_evaluated": ["Torgo", "Common Voice", "FLEURS", "UGAkan", "Speech Accessibility Project"],
+  "models_evaluated": ["Sherpa-ONNX", "Zipformer", "Whisper", "MMS"],
+  "adaptation_strategies_evaluated": [
+    "Post-ASR Personalization",
+    "User-Specific Calibration",
+    "Lightweight Acoustic Adaptation (LoRA)",
+    "Model Fine-Tuning",
+    "Model Routing"
+  ],
+  "languages_evaluated": ["English (Atypical)", "English (Ghanaian)", "Akan (Twi)"],
+  "atypical_speech_categories_evaluated": ["Dysarthria"],
+  "speaker_disjoint_verified": true,
+  "measured_improvements": [],
+  "unmeasured_metrics": ["Hardware Android WER", "Android RAM Usage", "Android Battery Drain"],
+  "licensing_status": ["Torgo: Non-Commercial", "UGAkan: Restricted", "SAP: Blocked"],
+  "android_feasibility": ["Inference: PROVEN", "On-Device Training: BLOCKED"],
+  "privacy_status": "MAINTAINED",
+  "offline_status": "MAINTAINED",
+  "safety_status": "MAINTAINED",
+  "production_promotion_eligible": false,
+  "major_blockers": [
+    "No commercial open-source atypical speech datasets.",
+    "No commercial atypical Ghanaian datasets.",
+    "On-device PyTorch training constraints for Android."
+  ],
+  "research_gaps": [
+    "Track C: Ghanaian Language + Atypical Speech is completely empty."
+  ],
+  "phase19_requirements": [
+    "Phase 19 should focus on expanding Strategy A (Post-ASR Personalization) and Strategy B (User-Specific Calibration) using Phase 10/11 paradigms, as these are the only legally and technically unblocked paths for immediate offline Android assistive communication."
+  ]
+}
