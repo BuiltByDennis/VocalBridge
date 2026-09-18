@@ -27,8 +27,8 @@ void main() {
       await file1.writeAsString('{"id": 1}');
       
       // Setup Mock MethodChannels
-      const MethodChannel('plugins.flutter.io/path_provider')
-          .setMockMethodCallHandler((MethodCall methodCall) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (MethodCall methodCall) async {
         if (methodCall.method == 'getApplicationDocumentsDirectory') {
           return docsDir.path;
         }
@@ -38,8 +38,8 @@ void main() {
         return null;
       });
       
-      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage')
-          .setMockMethodCallHandler((MethodCall methodCall) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'), (MethodCall methodCall) async {
         return null;
       });
 
@@ -72,8 +72,8 @@ void main() {
       final outsideFile = File('${tempRoot.path}/precious_system_file.txt');
       await outsideFile.writeAsString('keep me');
       
-      const MethodChannel('plugins.flutter.io/path_provider')
-          .setMockMethodCallHandler((MethodCall methodCall) async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel('plugins.flutter.io/path_provider'), (MethodCall methodCall) async {
         if (methodCall.method == 'getApplicationDocumentsDirectory') {
           return '.'; // DANGEROUS!
         }
