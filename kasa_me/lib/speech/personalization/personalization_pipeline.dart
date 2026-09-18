@@ -1,29 +1,37 @@
 import 'safety_guard.dart';
 import 'number_normalization.dart';
 import 'personalization_repository.dart';
+import '../safety/critical_safety_guard.dart';
 
 class PersonalizedTranscriptResult {
   final String rawTranscript;
   final String personalizedTranscript;
   final double? confidence;
   final bool wasPersonalized;
+  final bool isHighImpact;
+  final List<String> flaggedTerms;
 
   const PersonalizedTranscriptResult({
     required this.rawTranscript,
     required this.personalizedTranscript,
     this.confidence,
     required this.wasPersonalized,
+    this.isHighImpact = false,
+    this.flaggedTerms = const [],
   });
 }
 
 class PersonalizationPipeline {
   final PersonalizationSafetyGuard safetyGuard;
+  final CriticalSafetyGuard criticalSafetyGuard;
   final PersonalizationRepository? repository;
 
   PersonalizationPipeline({
     PersonalizationSafetyGuard? guard,
+    CriticalSafetyGuard? criticalGuard,
     this.repository,
-  }) : safetyGuard = guard ?? PersonalizationSafetyGuard();
+  })  : safetyGuard = guard ?? PersonalizationSafetyGuard(),
+        criticalSafetyGuard = criticalGuard ?? CriticalSafetyGuard();
 
   Future<void> initialize(String profileId) async {
     if (repository != null) {
@@ -87,11 +95,19 @@ class PersonalizationPipeline {
       );
     }
 
+    final safetyEval = criticalSafetyGuard.evaluateTranscript(
+      rawTranscript: rawTranscript,
+      personalizedTranscript: personalized,
+      confidence: confidence,
+    );
+
     return PersonalizedTranscriptResult(
       rawTranscript: rawTranscript,
       personalizedTranscript: personalized,
       confidence: confidence,
       wasPersonalized: wasChanged,
+      isHighImpact: safetyEval.isHighImpact,
+      flaggedTerms: safetyEval.flaggedTerms,
     );
   }
 }

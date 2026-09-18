@@ -26,6 +26,8 @@ enum UiEngineState {
 class HomeCommunicationState {
   final UiEngineState engineState;
   final bool isSpeaking;
+  final bool isHighImpact;
+  final bool hasConfirmedHighImpact;
   final String selectedLanguage;
   final AsrModelConfig activeModel;
   final String partialTranscript;
@@ -42,6 +44,8 @@ class HomeCommunicationState {
   const HomeCommunicationState({
     this.engineState = UiEngineState.notLoaded,
     this.isSpeaking = false,
+    this.isHighImpact = false,
+    this.hasConfirmedHighImpact = false,
     this.selectedLanguage = 'English (Ghana)',
     required this.activeModel,
     this.partialTranscript = '',
@@ -59,6 +63,8 @@ class HomeCommunicationState {
   HomeCommunicationState copyWith({
     UiEngineState? engineState,
     bool? isSpeaking,
+    bool? isHighImpact,
+    bool? hasConfirmedHighImpact,
     String? selectedLanguage,
     AsrModelConfig? activeModel,
     String? partialTranscript,
@@ -75,6 +81,8 @@ class HomeCommunicationState {
     return HomeCommunicationState(
       engineState: engineState ?? this.engineState,
       isSpeaking: isSpeaking ?? this.isSpeaking,
+      isHighImpact: isHighImpact ?? this.isHighImpact,
+      hasConfirmedHighImpact: hasConfirmedHighImpact ?? this.hasConfirmedHighImpact,
       selectedLanguage: selectedLanguage ?? this.selectedLanguage,
       activeModel: activeModel ?? this.activeModel,
       partialTranscript: partialTranscript ?? this.partialTranscript,
@@ -149,7 +157,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     }
   }
 
-  void _handleEngineEvent(SpeechEngineEvent event) {
+  Future<void> _handleEngineEvent(SpeechEngineEvent event) async {
     switch (event) {
       case EngineReady():
         state = state.copyWith(engineState: UiEngineState.ready, partialTranscript: '');
@@ -171,13 +179,15 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         state = state.copyWith(engineState: UiEngineState.processing);
         break;
       case FinalTranscript(text: final text, result: final res):
-        final pRes = _personalizationPipeline.processTranscript(text, confidence: res?.confidence);
+        final pRes = await _personalizationPipeline.processTranscript(text, confidence: res?.confidence);
         state = state.copyWith(
           engineState: UiEngineState.ready,
           rawTranscript: text,
           personalizedTranscript: pRes.personalizedTranscript.isNotEmpty ? pRes.personalizedTranscript : state.personalizedTranscript,
           partialTranscript: '',
           confidence: res?.confidence,
+          isHighImpact: pRes.isHighImpact,
+          hasConfirmedHighImpact: false,
           lastInferenceTime: res?.processingTime,
           lastAudioDuration: res?.audioDuration,
         );
@@ -227,9 +237,9 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     _phrasebookRepository.incrementUsage(entry.id);
   }
 
-  void applyWordCorrection(String observed, String intended) {
+  Future<void> applyWordCorrection(String observed, String intended) async {
     _personalizationPipeline.safetyGuard.validateAndAddWordMapping(observed, intended);
-    final pRes = _personalizationPipeline.processTranscript(state.rawTranscript, confidence: state.confidence);
+    final pRes = await _personalizationPipeline.processTranscript(state.rawTranscript, confidence: state.confidence);
     state = state.copyWith(personalizedTranscript: pRes.personalizedTranscript);
   }
 
@@ -237,7 +247,15 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     state = state.copyWith(rawTranscript: '', personalizedTranscript: '', partialTranscript: '');
   }
 
+  void confirmHighImpact() {
+    state = state.copyWith(hasConfirmedHighImpact: true);
+  }
+
   Future<void> speakTranscript() async {
+    if (state.isHighImpact && !state.hasConfirmedHighImpact) {
+      return;
+    }
+
     final textToSpeak = state.personalizedTranscript.isNotEmpty 
         ? state.personalizedTranscript 
         : state.rawTranscript;

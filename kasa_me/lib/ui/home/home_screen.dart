@@ -114,6 +114,35 @@ class HomeScreen extends ConsumerWidget {
                               fontStyle: FontStyle.italic,
                             ),
                           ),
+                        if (state.isHighImpact && !state.hasConfirmedHighImpact)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16.0),
+                            padding: const EdgeInsets.all(12.0),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning, color: theme.colorScheme.onErrorContainer),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Critical term detected. Please confirm meaning.',
+                                    style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => notifier.confirmHighImpact(),
+                                  style: ElevatedButton.styleFrom(
+                                    foregroundColor: theme.colorScheme.onErrorContainer,
+                                    backgroundColor: theme.colorScheme.errorContainer,
+                                  ),
+                                  child: const Text('Confirm'),
+                                ),
+                              ],
+                            ),
+                          ),
                         if (state.personalizedTranscript.isNotEmpty)
                           Wrap(
                             spacing: 6.0,
@@ -180,24 +209,28 @@ class HomeScreen extends ConsumerWidget {
                           icon: Icon(state.isSpeaking ? Icons.stop : Icons.volume_up),
                           tooltip: state.isSpeaking ? 'Stop Speaking' : 'Speak Text',
                           color: state.isSpeaking ? theme.colorScheme.primary : null,
-                          onPressed: () {
-                            if (state.isSpeaking) {
-                              notifier.stopSpeaking();
-                            } else {
-                              notifier.speakTranscript();
-                            }
-                          },
+                          onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
+                              ? null
+                              : () {
+                                  if (state.isSpeaking) {
+                                    notifier.stopSpeaking();
+                                  } else {
+                                    notifier.speakTranscript();
+                                  }
+                                },
                         ),
                         if (state.personalizedTranscript.isNotEmpty)
                           IconButton(
                             icon: const Icon(Icons.copy),
                             tooltip: 'Copy Transcript',
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: state.personalizedTranscript));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Copied to clipboard')),
-                              );
-                            },
+                            onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
+                                ? null
+                                : () {
+                                    Clipboard.setData(ClipboardData(text: state.personalizedTranscript));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Copied to clipboard')),
+                                    );
+                                  },
                           ),
                         IconButton(
                           icon: const Icon(Icons.clear),
