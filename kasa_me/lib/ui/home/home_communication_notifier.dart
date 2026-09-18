@@ -13,6 +13,7 @@ import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/offline_tts_engine.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
 import '../../profile/repositories/profile_repository.dart';
+import '../../speech/diagnostics/repositories/diagnostics_repository.dart';
 import '../../storage/database/app_database.dart';
 
 enum UiEngineState {
@@ -107,6 +108,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   late PersonalizationPipeline _personalizationPipeline;
   final PhrasebookRepository _phrasebookRepository;
   final ProfileRepository _profileRepository;
+  final DiagnosticsRepository _diagnosticsRepository;
   
   // TTS Engine
   late final TtsEngine _ttsEngine;
@@ -117,8 +119,10 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   HomeCommunicationNotifier({
     required PhrasebookRepository phrasebookRepository,
     required ProfileRepository profileRepository,
+    required DiagnosticsRepository diagnosticsRepository,
   })  : _phrasebookRepository = phrasebookRepository,
         _profileRepository = profileRepository,
+        _diagnosticsRepository = diagnosticsRepository,
         super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
     _personalizationPipeline = PersonalizationPipeline();
     _ttsEngine = OfflineTtsEngine();
@@ -192,6 +196,16 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         break;
       case FinalTranscript(text: final text, result: final res):
         final pRes = await _personalizationPipeline.processTranscript(text, confidence: res?.confidence);
+        
+        // Log telemetry
+        await _diagnosticsRepository.logRecognitionEvent(
+          profileId: 'default_user',
+          rawTranscript: text,
+          personalizedTranscript: pRes.personalizedTranscript.isNotEmpty ? pRes.personalizedTranscript : text,
+          confidence: res?.confidence,
+          wasCorrected: false,
+        );
+
         state = state.copyWith(
           engineState: UiEngineState.ready,
           rawTranscript: text,
@@ -255,6 +269,17 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   Future<void> applyWordCorrection(String observed, String intended) async {
     _personalizationPipeline.safetyGuard.validateAndAddWordMapping(observed, intended);
     final pRes = await _personalizationPipeline.processTranscript(state.rawTranscript, confidence: state.confidence);
+    
+    // Log telemetry for the correction
+    await _diagnosticsRepository.logRecognitionEvent(
+      profileId: 'default_user',
+      rawTranscript: state.rawTranscript,
+      personalizedTranscript: pRes.personalizedTranscript,
+      confidence: state.confidence,
+      wasCorrected: true,
+      context: 'word_correction_chip',
+    );
+
     state = state.copyWith(personalizedTranscript: pRes.personalizedTranscript);
   }
 
@@ -318,5 +343,6 @@ final homeCommunicationProvider =
   return HomeCommunicationNotifier(
     phrasebookRepository: ref.watch(phrasebookRepositoryProvider),
     profileRepository: ref.watch(profileRepositoryProvider),
+    diagnosticsRepository: ref.watch(diagnosticsRepositoryProvider),
   );
 });

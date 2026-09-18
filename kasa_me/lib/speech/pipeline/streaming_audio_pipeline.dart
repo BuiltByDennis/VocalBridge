@@ -29,12 +29,12 @@ class StreamingAudioPipeline {
     await _speechEngine.initialize();
   }
 
-  Future<void> startPushToTalkSession() async {
+  Future<void> startPushToTalkSession({String hotwords = ''}) async {
     if (_isPipelineActive) return;
     _isPipelineActive = true;
     _vad.reset();
 
-    await _speechEngine.start();
+    await _speechEngine.start(hotwords: hotwords);
     await _recorderService.start();
 
     _audioSubscription = _recorderService.audioStream.listen((pcmData) async {

@@ -1,9 +1,62 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../home/home_communication_notifier.dart';
+import '../../speech/diagnostics/repositories/diagnostics_repository.dart';
 
 class AsrDiagnosticsScreen extends ConsumerWidget {
   const AsrDiagnosticsScreen({super.key});
+
+  Future<void> _exportMetrics(BuildContext context, WidgetRef ref) async {
+    try {
+      final repo = ref.read(diagnosticsRepositoryProvider);
+      final events = await repo.getEventsForProfile('default_user');
+      
+      final appDir = await getApplicationDocumentsDirectory();
+      final metricsDir = Directory('${appDir.path}/metrics');
+      if (!await metricsDir.exists()) {
+        await metricsDir.create(recursive: true);
+      }
+      
+      final file = File('${metricsDir.path}/asr_metrics_${DateTime.now().millisecondsSinceEpoch}.csv');
+      final sink = file.openWrite();
+      
+      // Header
+      sink.writeln('Timestamp,RawTranscript,PersonalizedTranscript,Confidence,WasCorrected,Context');
+      
+      // Rows
+      for (final event in events) {
+        final timestamp = event.timestamp.toIso8601String();
+        // Escape CSV strings
+        final raw = '"${event.rawTranscript.replaceAll('"', '""')}"';
+        final personalized = '"${event.personalizedTranscript.replaceAll('"', '""')}"';
+        final confidence = event.confidence?.toStringAsFixed(3) ?? '';
+        final wasCorrected = event.wasCorrected ? '1' : '0';
+        final contextField = '"${event.context.replaceAll('"', '""')}"';
+        
+        sink.writeln('$timestamp,$raw,$personalized,$confidence,$wasCorrected,$contextField');
+      }
+      
+      await sink.flush();
+      await sink.close();
+
+      if (context.mounted) {
+        Clipboard.setData(ClipboardData(text: file.path));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Metrics saved to: ${file.path} (Path copied to clipboard)')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to export metrics: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,6 +73,13 @@ class AsrDiagnosticsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ASR Diagnostics'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Export CSV',
+            onPressed: () => _exportMetrics(context, ref),
+          )
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),

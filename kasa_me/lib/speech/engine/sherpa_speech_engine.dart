@@ -124,14 +124,14 @@ class SherpaSpeechEngine implements SpeechEngine {
   }
 
   @override
-  Future<void> start() async {
+  Future<void> start({String hotwords = ''}) async {
     if (!isInitialized || _recognizer == null) {
       _eventController.add(const SpeechEngineError('Speech recognition is not initialized.'));
       return;
     }
 
     try {
-      _stream = _recognizer!.createStream();
+      _stream = _recognizer!.createStream(hotwords: hotwords);
       _lifecycleState = EngineLifecycleState.listening;
       _totalAudioSamples = 0;
       _lastPartialText = '';

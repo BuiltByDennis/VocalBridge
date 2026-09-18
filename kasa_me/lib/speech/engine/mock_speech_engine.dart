@@ -30,7 +30,7 @@ class MockSpeechEngine implements SpeechEngine {
   }
 
   @override
-  Future<void> start() async {
+  Future<void> start({String hotwords = ''}) async {
     if (!_initialized) {
       _eventController.add(const SpeechEngineError('Engine not initialized'));
       return;
