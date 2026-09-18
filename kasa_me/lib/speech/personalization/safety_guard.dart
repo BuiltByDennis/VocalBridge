@@ -1,6 +1,12 @@
+import 'evidence_tracker.dart';
+
 class PersonalizationSafetyGuard {
-  final Map<String, String> _learnedWordMappings = {};
-  final Map<String, String> _learnedPhraseMappings = {};
+  final Map<String, ({String intended, int frequency})> _learnedWordMappings = {};
+  final Map<String, ({String intended, int frequency})> _learnedPhraseMappings = {};
+  final EvidenceTracker _evidenceTracker;
+
+  PersonalizationSafetyGuard({EvidenceTracker? evidenceTracker})
+      : _evidenceTracker = evidenceTracker ?? EvidenceTracker();
 
   bool validateAndAddWordMapping(String observed, String intended, {String language = 'en_GH', int frequency = 1}) {
     final obs = _normalize(observed);
@@ -10,16 +16,16 @@ class PersonalizationSafetyGuard {
     if (obs == intd) return false;
 
     // Cycle / Loop Detection (A -> B -> A)
-    if (_learnedWordMappings[intd] == obs) {
+    if (_learnedWordMappings[intd]?.intended == obs) {
       return false;
     }
 
     // Cascading Rewrite Prevention (A -> B, B -> C)
-    if (_learnedWordMappings.containsKey(intd) || _learnedWordMappings.containsValue(obs)) {
+    if (_learnedWordMappings.containsKey(intd) || _learnedWordMappings.values.any((v) => v.intended == obs)) {
       return false; // Prevents multi-step chain
     }
 
-    _learnedWordMappings[obs] = intd;
+    _learnedWordMappings[obs] = (intended: intd, frequency: frequency);
     return true;
   }
 
@@ -30,9 +36,9 @@ class PersonalizationSafetyGuard {
     if (obs.isEmpty || intd.isEmpty) return false;
     if (obs == intd) return false;
 
-    if (_learnedPhraseMappings[intd] == obs) return false;
+    if (_learnedPhraseMappings[intd]?.intended == obs) return false;
 
-    _learnedPhraseMappings[obs] = intd;
+    _learnedPhraseMappings[obs] = (intended: intd, frequency: frequency);
     return true;
   }
 
@@ -43,7 +49,10 @@ class PersonalizationSafetyGuard {
 
     // Single pass phrase correction check
     if (_learnedPhraseMappings.containsKey(normRaw)) {
-      return _learnedPhraseMappings[normRaw]!;
+      final mapping = _learnedPhraseMappings[normRaw]!;
+      if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence)) {
+        return mapping.intended;
+      }
     }
 
     // Word level single-pass replacement
@@ -53,11 +62,16 @@ class PersonalizationSafetyGuard {
     for (final word in words) {
       final cleanWord = _normalize(word);
       if (_learnedWordMappings.containsKey(cleanWord)) {
-        final replacement = _learnedWordMappings[cleanWord]!;
-        if (word.isNotEmpty && word[0] == word[0].toUpperCase()) {
-          resultWords.add(replacement[0].toUpperCase() + replacement.substring(1));
+        final mapping = _learnedWordMappings[cleanWord]!;
+        if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence)) {
+          final replacement = mapping.intended;
+          if (word.isNotEmpty && word[0] == word[0].toUpperCase()) {
+            resultWords.add(replacement[0].toUpperCase() + replacement.substring(1));
+          } else {
+            resultWords.add(replacement);
+          }
         } else {
-          resultWords.add(replacement);
+          resultWords.add(word);
         }
       } else {
         resultWords.add(word);
@@ -74,5 +88,15 @@ class PersonalizationSafetyGuard {
   void clear() {
     _learnedWordMappings.clear();
     _learnedPhraseMappings.clear();
+  }
+
+  void hydrateMappings(Map<String, ({String intended, int frequency})> mappings) {
+    for (final entry in mappings.entries) {
+      if (entry.key.contains(' ')) {
+        _learnedPhraseMappings[entry.key] = entry.value;
+      } else {
+        _learnedWordMappings[entry.key] = entry.value;
+      }
+    }
   }
 }
