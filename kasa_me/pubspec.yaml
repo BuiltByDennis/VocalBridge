@@ -49,6 +49,7 @@ dependencies:
   just_audio: ^0.9.46
   sqlite3: ^2.9.4
   sherpa_onnx: ^1.13.8
+  flutter_tts: any
 
 dev_dependencies:
   flutter_test:

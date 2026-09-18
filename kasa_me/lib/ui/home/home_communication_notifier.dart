@@ -10,7 +10,7 @@ import '../../speech/engine/speech_engine_factory.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
 import '../../speech/tts/tts_engine.dart';
-import '../../speech/tts/mock_tts_engine.dart';
+import '../../speech/tts/offline_tts_engine.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
 import '../../storage/database/app_database.dart';
 
@@ -108,7 +108,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       : _phrasebookRepository = phrasebookRepository,
         super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
     _personalizationPipeline = PersonalizationPipeline();
-    _ttsEngine = MockTtsEngine();
+    _ttsEngine = OfflineTtsEngine();
     _initialize();
   }
 
