@@ -12,6 +12,7 @@ import '../../speech/pipeline/streaming_audio_pipeline.dart';
 import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/offline_tts_engine.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
+import '../../profile/repositories/profile_repository.dart';
 import '../../storage/database/app_database.dart';
 
 enum UiEngineState {
@@ -105,6 +106,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   late StreamingAudioPipeline _pipeline;
   late PersonalizationPipeline _personalizationPipeline;
   final PhrasebookRepository _phrasebookRepository;
+  final ProfileRepository _profileRepository;
   
   // TTS Engine
   late final TtsEngine _ttsEngine;
@@ -112,8 +114,11 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   StreamSubscription<SpeechEngineEvent>? _eventSub;
   StreamSubscription<List<PhrasebookEntry>>? _phrasebookSub;
 
-  HomeCommunicationNotifier({required PhrasebookRepository phrasebookRepository})
-      : _phrasebookRepository = phrasebookRepository,
+  HomeCommunicationNotifier({
+    required PhrasebookRepository phrasebookRepository,
+    required ProfileRepository profileRepository,
+  })  : _phrasebookRepository = phrasebookRepository,
+        _profileRepository = profileRepository,
         super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
     _personalizationPipeline = PersonalizationPipeline();
     _ttsEngine = OfflineTtsEngine();
@@ -123,6 +128,13 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   Future<void> _initialize() async {
     state = state.copyWith(engineState: UiEngineState.loading);
     final startTime = DateTime.now();
+
+    // Fetch preferred language
+    final profile = await _profileRepository.getActiveProfile('default_user');
+    final activeModel = AsrModelRegistry.getModelForLanguage(profile.preferredLanguage) 
+        ?? AsrModelRegistry.defaultModel;
+
+    state = state.copyWith(activeModel: activeModel, selectedLanguage: profile.preferredLanguage);
 
     // Subscribe to Phrasebook
     _phrasebookSub = _phrasebookRepository.watchQuickPhrases().listen((phrases) {
@@ -295,6 +307,8 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   return AppDatabase(); // Normally we pass the connection
 });
 
+
+
 final phrasebookRepositoryProvider = Provider<PhrasebookRepository>((ref) {
   return PhrasebookRepository(ref.watch(databaseProvider));
 });
@@ -303,5 +317,6 @@ final homeCommunicationProvider =
     StateNotifierProvider<HomeCommunicationNotifier, HomeCommunicationState>((ref) {
   return HomeCommunicationNotifier(
     phrasebookRepository: ref.watch(phrasebookRepositoryProvider),
+    profileRepository: ref.watch(profileRepositoryProvider),
   );
 });

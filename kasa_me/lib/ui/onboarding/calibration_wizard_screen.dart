@@ -11,7 +11,7 @@ import '../home/home_screen.dart';
 
 // Create providers for dependency injection
 final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
-final profileRepositoryProvider = Provider<ProfileRepository>((ref) => ProfileRepository(ref.watch(databaseProvider)));
+
 final personalizationPipelineProvider = Provider<PersonalizationPipeline>((ref) => PersonalizationPipeline());
 
 final calibrationServiceProvider = Provider.autoDispose<CalibrationService>((ref) {

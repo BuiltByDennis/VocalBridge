@@ -15,8 +15,53 @@ class AsrModelRegistry {
     isDefault: true,
   );
 
+  static const AsrModelConfig twiModel = AsrModelConfig(
+    id: 'twi_edge_v1',
+    displayName: 'Twi (UG Dataset) Edge v1',
+    language: 'twi',
+    encoderPath: 'assets/models/asr/twi/encoder.onnx',
+    decoderPath: 'assets/models/asr/twi/decoder.onnx',
+    joinerPath: 'assets/models/asr/twi/joiner.onnx',
+    tokensPath: 'assets/models/asr/twi/tokens.txt',
+    sampleRate: 16000,
+    streaming: true,
+    estimatedSizeMb: 45,
+    isDefault: false,
+  );
+
+  static const AsrModelConfig eweModel = AsrModelConfig(
+    id: 'ewe_edge_v1',
+    displayName: 'Ewe (UG Dataset) Edge v1',
+    language: 'ewe',
+    encoderPath: 'assets/models/asr/ewe/encoder.onnx',
+    decoderPath: 'assets/models/asr/ewe/decoder.onnx',
+    joinerPath: 'assets/models/asr/ewe/joiner.onnx',
+    tokensPath: 'assets/models/asr/ewe/tokens.txt',
+    sampleRate: 16000,
+    streaming: true,
+    estimatedSizeMb: 45,
+    isDefault: false,
+  );
+
+  static const AsrModelConfig dagbaniModel = AsrModelConfig(
+    id: 'dagbani_edge_v1',
+    displayName: 'Dagbani (UG Dataset) Edge v1',
+    language: 'dagbani',
+    encoderPath: 'assets/models/asr/dagbani/encoder.onnx',
+    decoderPath: 'assets/models/asr/dagbani/decoder.onnx',
+    joinerPath: 'assets/models/asr/dagbani/joiner.onnx',
+    tokensPath: 'assets/models/asr/dagbani/tokens.txt',
+    sampleRate: 16000,
+    streaming: true,
+    estimatedSizeMb: 45,
+    isDefault: false,
+  );
+
   static final List<AsrModelConfig> _registry = [
     defaultEnglishModel,
+    twiModel,
+    eweModel,
+    dagbaniModel,
   ];
 
   static List<AsrModelConfig> get availableModels => List.unmodifiable(_registry);

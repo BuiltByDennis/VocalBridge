@@ -1,5 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import 'package:kasa_me/storage/database/app_database.dart';
+
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return ProfileRepository(ref.watch(databaseProvider));
+});
 
 class ProfileRepository {
   final AppDatabase _db;
@@ -30,6 +35,7 @@ class ProfileRepository {
     bool? enableCorrectionMemory,
     double? minConfidenceThreshold,
     bool? isCalibrated,
+    String? preferredLanguage,
   }) async {
     await (_db.update(_db.personalProfiles)..where((t) => t.profileId.equals(profileId))).write(
       PersonalProfilesCompanion(
@@ -38,6 +44,7 @@ class ProfileRepository {
         enableCorrectionMemory: enableCorrectionMemory != null ? Value(enableCorrectionMemory) : const Value.absent(),
         minConfidenceThreshold: minConfidenceThreshold != null ? Value(minConfidenceThreshold) : const Value.absent(),
         isCalibrated: isCalibrated != null ? Value(isCalibrated) : const Value.absent(),
+        preferredLanguage: preferredLanguage != null ? Value(preferredLanguage) : const Value.absent(),
         updatedAt: Value(DateTime.now()),
       ),
     );
