@@ -9,6 +9,8 @@ import '../../speech/engine/speech_engine.dart';
 import '../../speech/engine/speech_engine_factory.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
+import '../../phrasebook/repositories/phrasebook_repository.dart';
+import '../../storage/database/app_database.dart';
 
 enum UiEngineState {
   notLoaded,
@@ -32,7 +34,7 @@ class HomeCommunicationState {
   final String? errorMessage;
   final DateTime? modelLoadedAt;
   final Duration? modelLoadDuration;
-  final List<String> quickPhrases;
+  final List<PhrasebookEntry> quickPhrases;
 
   const HomeCommunicationState({
     this.engineState = UiEngineState.notLoaded,
@@ -47,13 +49,7 @@ class HomeCommunicationState {
     this.errorMessage,
     this.modelLoadedAt,
     this.modelLoadDuration,
-    this.quickPhrases = const [
-      'I need water',
-      'I need help',
-      'I am in pain',
-      'Please call my mother',
-      'I need to see the doctor'
-    ],
+    this.quickPhrases = const [],
   });
 
   HomeCommunicationState copyWith({
@@ -69,7 +65,7 @@ class HomeCommunicationState {
     String? errorMessage,
     DateTime? modelLoadedAt,
     Duration? modelLoadDuration,
-    List<String>? quickPhrases,
+    List<PhrasebookEntry>? quickPhrases,
   }) {
     return HomeCommunicationState(
       engineState: engineState ?? this.engineState,
@@ -94,10 +90,14 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   late AudioRecorderService _recorderService;
   late StreamingAudioPipeline _pipeline;
   late PersonalizationPipeline _personalizationPipeline;
+  final PhrasebookRepository _phrasebookRepository;
+  
   StreamSubscription<SpeechEngineEvent>? _eventSub;
+  StreamSubscription<List<PhrasebookEntry>>? _phrasebookSub;
 
-  HomeCommunicationNotifier()
-      : super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
+  HomeCommunicationNotifier({required PhrasebookRepository phrasebookRepository})
+      : _phrasebookRepository = phrasebookRepository,
+        super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
     _personalizationPipeline = PersonalizationPipeline();
     _initialize();
   }
@@ -105,6 +105,11 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   Future<void> _initialize() async {
     state = state.copyWith(engineState: UiEngineState.loading);
     final startTime = DateTime.now();
+
+    // Subscribe to Phrasebook
+    _phrasebookSub = _phrasebookRepository.watchQuickPhrases().listen((phrases) {
+      state = state.copyWith(quickPhrases: phrases);
+    });
 
     _speechEngine = SpeechEngineFactory.createEngine(config: state.activeModel);
     _recorderService = AudioRecorderService();
@@ -199,13 +204,16 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     }
   }
 
-  void selectQuickPhrase(String phrase) {
+  void selectQuickPhrase(PhrasebookEntry entry) {
     HapticFeedback.mediumImpact();
     state = state.copyWith(
-      rawTranscript: phrase,
-      personalizedTranscript: phrase,
+      rawTranscript: entry.phrase,
+      personalizedTranscript: entry.phrase,
       confidence: 1.0,
     );
+    
+    // Trigger usage count increment to allow dynamic reordering
+    _phrasebookRepository.incrementUsage(entry.id);
   }
 
   void applyWordCorrection(String observed, String intended) {
@@ -221,12 +229,24 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   @override
   void dispose() {
     _eventSub?.cancel();
+    _phrasebookSub?.cancel();
     _pipeline.dispose();
     super.dispose();
   }
 }
 
+// Temporary global instance for compilation since riverpod usually requires a provider scope.
+final databaseProvider = Provider<AppDatabase>((ref) {
+  return AppDatabase(); // Normally we pass the connection
+});
+
+final phrasebookRepositoryProvider = Provider<PhrasebookRepository>((ref) {
+  return PhrasebookRepository(ref.watch(databaseProvider));
+});
+
 final homeCommunicationProvider =
     StateNotifierProvider<HomeCommunicationNotifier, HomeCommunicationState>((ref) {
-  return HomeCommunicationNotifier();
+  return HomeCommunicationNotifier(
+    phrasebookRepository: ref.watch(phrasebookRepositoryProvider),
+  );
 });

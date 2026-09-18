@@ -77,7 +77,7 @@ class HomeScreen extends ConsumerWidget {
                   itemBuilder: (ctx, idx) {
                     final phrase = state.quickPhrases[idx];
                     return ActionChip(
-                      label: Text(phrase, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(phrase.phrase, style: const TextStyle(fontWeight: FontWeight.bold)),
                       backgroundColor: theme.colorScheme.primaryContainer,
                       onPressed: () => notifier.selectQuickPhrase(phrase),
                     );

@@ -30,6 +30,35 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
+          
+          // Seed default Profile
+          final defaultProfileId = await into(profiles).insert(
+            ProfilesCompanion.insert(
+              name: 'Default User',
+              preferredLanguage: 'en_GH',
+            ),
+          );
+
+          // Seed default Ghanaian communication phrases
+          final defaultPhrases = [
+            (phrase: 'I need water', category: 'Daily Needs'),
+            (phrase: 'I need help', category: 'Healthcare'),
+            (phrase: 'I am in pain', category: 'Healthcare'),
+            (phrase: 'Please call my mother', category: 'Daily Needs'),
+            (phrase: 'I need to see the doctor', category: 'Healthcare'),
+            (phrase: 'Where is the bank', category: 'Banking'),
+            (phrase: 'I want to withdraw money', category: 'Banking'),
+          ];
+
+          for (final p in defaultPhrases) {
+            await into(phrasebookEntries).insert(
+              PhrasebookEntriesCompanion.insert(
+                profileId: defaultProfileId,
+                phrase: p.phrase,
+                category: Value(p.category),
+              ),
+            );
+          }
         },
         onUpgrade: (m, from, to) async {
           if (from == 1) {
