@@ -93,7 +93,11 @@ class CalibrationService {
 
       if (!isMatch && recognized.isNotEmpty) {
         // Automatically seed the discrepancy as a correction so the system learns the user's speech
-        _personalizationPipeline.safetyGuard.validateAndAddPhraseMapping(recognized, target);
+        _personalizationPipeline.applyCorrection(
+          original: recognized,
+          corrected: target,
+          profileId: 'default_user',
+        );
       }
 
       _resultController.add(CalibrationResult(
