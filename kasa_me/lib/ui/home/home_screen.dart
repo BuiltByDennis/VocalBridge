@@ -1,351 +1,79 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'home_communication_notifier.dart';
-import '../diagnostics/asr_diagnostics_screen.dart';
-import '../settings/personalization_settings_screen.dart';
+import '../theme/app_theme.dart';
+import 'voice_agent_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(homeCommunicationProvider);
-    final notifier = ref.read(homeCommunicationProvider.notifier);
-
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Kasa Me'),
-        actions: [
-          Semantics(
-            button: true,
-            label: 'Personalization Settings',
-            child: SizedBox(
-              width: 56,
-              height: 56,
-              child: IconButton(
-                icon: const Icon(Icons.tune),
-                tooltip: 'Personalization Settings',
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PersonalizationSettingsScreen()),
-                  );
-                },
-              ),
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: 'ASR Diagnostics',
-            child: SizedBox(
-              width: 56,
-              height: 56,
-              child: IconButton(
-                icon: const Icon(IconData(0xe1d5, fontFamily: 'MaterialIcons')),
-                tooltip: 'ASR Diagnostics',
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AsrDiagnosticsScreen()),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      extendBodyBehindAppBar: true,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppTheme.mainBackgroundGradient,
+        ),
+        child: SafeArea(
+          child: Stack(
             children: [
-              // Language Header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      state.selectedLanguage,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Icon(Icons.language),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Quick Phrase Access Bar
-              SizedBox(
-                height: 64,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: state.quickPhrases.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (ctx, idx) {
-                    final phrase = state.quickPhrases[idx];
-                    return Semantics(
-                      button: true,
-                      label: 'Quick phrase: ${phrase.phrase}',
-                      child: SizedBox(
-                        height: 56,
-                        child: ActionChip(
-                          label: Text(phrase.phrase, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          backgroundColor: theme.colorScheme.primaryContainer,
-                          onPressed: () => notifier.selectQuickPhrase(phrase),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Transcript Display Area
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(20.0),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(
-                      color: state.engineState == UiEngineState.listening
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outline,
-                      width: 2.0,
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (state.personalizedTranscript.isEmpty && state.partialTranscript.isEmpty)
-                          Text(
-                            state.engineState == UiEngineState.loading
-                                ? 'Initializing speech model...'
-                                : 'Press and hold "Speak" to talk...',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.5),
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        if (state.isHighImpact && !state.hasConfirmedHighImpact)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 16.0),
-                            padding: const EdgeInsets.all(12.0),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.errorContainer,
-                              borderRadius: BorderRadius.circular(8.0),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.warning, color: theme.colorScheme.onErrorContainer),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Critical term detected. Please confirm meaning.',
-                                    style: TextStyle(color: theme.colorScheme.onErrorContainer),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => notifier.confirmHighImpact(),
-                                  style: ElevatedButton.styleFrom(
-                                    foregroundColor: theme.colorScheme.onErrorContainer,
-                                    backgroundColor: theme.colorScheme.errorContainer,
-                                  ),
-                                  child: const Text('Confirm'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (state.personalizedTranscript.isNotEmpty)
-                          Wrap(
-                            spacing: 12.0,
-                            runSpacing: 12.0,
-                            children: state.personalizedTranscript.split(' ').map((word) {
-                              return Semantics(
-                                button: true,
-                                label: 'Correct word: $word',
-                                child: InkWell(
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    _showWordCorrectionModal(context, notifier, word);
-                                  },
-                                  borderRadius: BorderRadius.circular(8.0),
-                                  child: Container(
-                                    constraints: const BoxConstraints(minHeight: 56, minWidth: 56),
-                                    alignment: Alignment.center,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ),
-                                    child: Text(
-                                      word,
-                                      style: theme.textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.colorScheme.onSurface,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        if (state.partialTranscript.isNotEmpty) ...[
-                          if (state.personalizedTranscript.isNotEmpty) const SizedBox(height: 12),
-                          Text(
-                            state.partialTranscript,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Confidence & Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    state.confidence != null
-                        ? state.confidence! > 0.8
-                            ? 'High Confidence (${(state.confidence! * 100).toStringAsFixed(0)}%)'
-                            : 'Needs Confirmation (${(state.confidence! * 100).toStringAsFixed(0)}%)'
-                        : 'Confidence: Available',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: state.confidence != null && state.confidence! <= 0.8
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.onSurface,
+                  _buildHeader(),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Text(
+                      'Hi User, Kasa Me\nHears You',
+                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                        height: 1.2,
+                        letterSpacing: -0.5,
+                      ),
                     ),
                   ),
-                  if (state.personalizedTranscript.isNotEmpty || state.rawTranscript.isNotEmpty)
-                    Row(
-                      children: [
-                        Semantics(
-                          button: true,
-                          label: state.isSpeaking ? 'Stop speaking' : 'Speak transcript',
-                          child: SizedBox(
-                            width: 56,
-                            height: 56,
-                            child: IconButton(
-                              icon: Icon(state.isSpeaking ? Icons.stop : Icons.volume_up),
-                              tooltip: state.isSpeaking ? 'Stop Speaking' : 'Speak Text',
-                              color: state.isSpeaking ? theme.colorScheme.primary : null,
-                              onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
-                                  ? null
-                                  : () {
-                                      if (state.isSpeaking) {
-                                        notifier.stopSpeaking();
-                                      } else {
-                                        notifier.speakTranscript();
-                                      }
-                                    },
-                            ),
-                          ),
-                        ),
-                        if (state.personalizedTranscript.isNotEmpty)
-                          Semantics(
-                            button: true,
-                            label: 'Copy transcript',
-                            child: SizedBox(
-                              width: 56,
-                              height: 56,
-                              child: IconButton(
-                                icon: const Icon(Icons.copy),
-                                tooltip: 'Copy Transcript',
-                                onPressed: (state.isHighImpact && !state.hasConfirmedHighImpact)
-                                    ? null
-                                    : () {
-                                        Clipboard.setData(ClipboardData(text: state.personalizedTranscript));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Copied to clipboard')),
-                                        );
-                                      },
-                              ),
-                            ),
-                          ),
-                        Semantics(
-                          button: true,
-                          label: 'Clear transcript',
-                          child: SizedBox(
-                            width: 56,
-                            height: 56,
-                            child: IconButton(
-                              icon: const Icon(Icons.clear),
-                              tooltip: 'Clear Text',
-                              onPressed: notifier.clearTranscript,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Large Push-to-Talk Primary Action Button
-              Semantics(
-                button: true,
-                label: 'Push to talk button. Hold down to record, release to stop.',
-                child: SizedBox(
-                  height: 80,
-                  child: Listener(
-                    onPointerDown: (_) => notifier.startPushToTalk(),
-                    onPointerUp: (_) => notifier.stopPushToTalk(),
-                    onPointerCancel: (_) => notifier.stopPushToTalk(),
-                    child: Material(
-                      color: state.engineState == UiEngineState.listening
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(20.0),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20.0),
-                        onTap: () {},
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              state.engineState == UiEngineState.listening
-                                  ? Icons.mic
-                                  : Icons.mic_none,
-                              size: 36,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              state.engineState == UiEngineState.listening
-                                  ? 'Listening... (Release to Stop)'
-                                  : state.engineState == UiEngineState.processing
-                                      ? 'Processing...'
-                                      : 'Speak (Hold to Talk)',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                color: theme.colorScheme.onPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
+                  const Spacer(flex: 1),
+                  Center(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const VoiceAgentScreen()),
+                        );
+                      },
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryCyan.withOpacity(0.3),
+                              blurRadius: 40,
+                              spreadRadius: 10,
                             ),
                           ],
                         ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/voice_avatar.jpg',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
                     ),
                   ),
+                  const Spacer(flex: 2),
+                  _buildOverviewCard(context),
+                  const SizedBox(height: 100), // Space for bottom nav
+                ],
+              ),
+              // Floating Bottom Nav
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 24.0, left: 24.0, right: 24.0),
+                  child: _buildBottomNav(),
                 ),
               ),
             ],
@@ -355,45 +83,252 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _showWordCorrectionModal(BuildContext context, HomeCommunicationNotifier notifier, String word) {
-    final controller = TextEditingController(text: word);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20.0,
-          right: 20.0,
-          top: 20.0,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20.0,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Correct Word "$word"', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Intended Word',
-                border: OutlineInputBorder(),
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.menu, color: AppTheme.textPrimary),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.notifications_none, color: AppTheme.textPrimary),
               ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-              onPressed: () {
-                if (controller.text.trim().isNotEmpty && controller.text.trim() != word) {
-                  notifier.applyWordCorrection(word, controller.text.trim());
-                }
-                Navigator.pop(ctx);
-              },
-              child: const Text('Save Correction'),
-            ),
-          ],
-        ),
+              const SizedBox(width: 12),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                  image: const DecorationImage(
+                    image: NetworkImage('https://i.pravatar.cc/150?img=47'), // Placeholder for user
+                  ),
+                ),
+              ),
+            ],
+          )
+        ],
       ),
     );
   }
+
+  Widget _buildOverviewCard(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Speech Overview',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  color: AppTheme.darkAccent,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+          // Placeholder for Gauge
+          Center(
+            child: SizedBox(
+              height: 120,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(200, 100),
+                    painter: ArcPainter(),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 30),
+                      Text(
+                        'Accuracy Score',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '82',
+                              style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                                fontSize: 36,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' /100',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildStat('Words', '230 learned', Icons.record_voice_over, const Color(0xFFFFE4E6)),
+              _buildStat('Phrases', '45 saved', Icons.chat_bubble_outline, const Color(0xFFE0E7FF)),
+              _buildStat('Sessions', '12 today', Icons.timer, const Color(0xFFDCFCE7)),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStat(String title, String value, IconData icon, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 14, color: AppTheme.textPrimary),
+            ),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+      ],
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      height: 70,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(35),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          )
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: AppTheme.darkAccent,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.home_filled, color: Colors.white),
+          ),
+          const Icon(Icons.favorite_border, color: AppTheme.textSecondary),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryPurple,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.graphic_eq, color: Colors.white),
+          ),
+          const Icon(Icons.calendar_today, color: AppTheme.textSecondary),
+          const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+class ArcPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height);
+    final radius = size.width / 2;
+
+    final bgPaint = Paint()
+      ..color = Colors.grey.shade200
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 16
+      ..strokeCap = StrokeCap.round;
+
+    final fgPaint = Paint()
+      ..color = const Color(0xFFD4E8A5) // Light lime green from design
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 16
+      ..strokeCap = StrokeCap.round;
+
+    // Draw background arc
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      3.14, // start angle (pi = left)
+      3.14, // sweep angle (pi = half circle)
+      false,
+      bgPaint,
+    );
+
+    // Draw foreground arc (82% filled)
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      3.14,
+      3.14 * 0.82,
+      false,
+      fgPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
