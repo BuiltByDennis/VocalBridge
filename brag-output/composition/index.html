@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+</head>
+<body>
+  <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0.0" data-duration="18.0">
+    
+    <!-- Scene 1: The Hook -->
+    <div id="scene1" class="clip scene hook" data-start="0.0" data-duration="3.0">
+      <h1 id="text1" class="fade-in-text">Speech tech wasn't built for Twi.</h1>
+    </div>
+
+    <!-- Scene 2: The Reveal -->
+    <div id="scene2" class="clip scene reveal" data-start="3.0" data-duration="3.0">
+      <h1 id="text2" class="fade-in-up">So we built an offline AI that adapts to you.</h1>
+    </div>
+
+    <!-- Scene 3: UI - The Button -->
+    <div id="scene3" class="clip scene ui-button" data-start="6.0" data-duration="3.0">
+      <div id="button1" class="button-wrapper pop-in">
+        <div class="push-to-talk pressed">
+          <svg viewBox="0 0 24 24" fill="white" width="60" height="60">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 4: UI - Transcription -->
+    <div id="scene4" class="clip scene ui-transcription" data-start="9.0" data-duration="4.0">
+      <div id="small-button1" class="small-button pop-in">
+        <svg viewBox="0 0 24 24" fill="white" width="30" height="30">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+        </svg>
+      </div>
+      <div id="box1" class="transcription-box">
+        <h2 class="typewriter">Mehia me nnuru</h2>
+      </div>
+    </div>
+
+    <!-- Scene 5: The Flex -->
+    <div id="scene5" class="clip scene flex" data-start="13.0" data-duration="2.0">
+      <div id="badge1" class="badge bounce-in">
+        100% Offline. Akan/Twi Support.
+      </div>
+    </div>
+
+    <!-- Scene 6: Outro -->
+    <div id="scene6" class="clip scene outro" data-start="15.0" data-duration="3.0">
+      <div id="logo-container1" class="logo-container fade-in">
+        <h1 id="logo1" class="logo">VocalBridge</h1>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    const tl = gsap.timeline({ paused: true });
+    
+    // Animate scenes
+    tl.fromTo("#scene1", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 0.0);
+    tl.to("#scene1", { opacity: 0, duration: 0.5 }, 2.5);
+
+    tl.fromTo("#scene2", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.5 }, 3.0);
+    tl.to("#scene2", { opacity: 0, y: -50, duration: 0.5 }, 5.5);
+
+    tl.fromTo("#scene3", { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.5 }, 6.0);
+    // Button click animation
+    tl.to(".push-to-talk", { scale: 0.9, backgroundColor: "#e6b800", duration: 0.1, yoyo: true, repeat: 1 }, 7.5);
+    tl.to("#scene3", { opacity: 0, duration: 0.5 }, 8.5);
+
+    tl.fromTo("#scene4", { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.5 }, 9.0);
+    // Typewriter effect (clip path or width animation would be ideal, but opacity is fine for now)
+    tl.fromTo(".typewriter", { opacity: 0 }, { opacity: 1, duration: 1.0 }, 9.5);
+    tl.to("#scene4", { opacity: 0, duration: 0.5 }, 12.5);
+
+    tl.fromTo("#scene5", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5 }, 13.0);
+    tl.to("#scene5", { opacity: 0, duration: 0.5 }, 14.5);
+
+    tl.fromTo("#scene6", { opacity: 0 }, { opacity: 1, duration: 1.0 }, 15.0);
+
+    window.__timelines["main"] = tl;
+    tl.seek(0);
+  </script>
+</body>
+</html>

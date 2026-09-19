@@ -1,0 +1,112 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
+#canvas {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+}
+
+h1 {
+  font-size: 80px;
+  text-align: center;
+  margin: 0 100px;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 60px;
+  color: #FFCC00;
+}
+
+/* Animations will be driven by hyperframes data-start/data-duration, 
+   but we provide initial states and transitions here for previewing if needed. */
+   
+.fade-in-text {
+  opacity: 1;
+}
+
+.fade-in-up {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.push-to-talk {
+  background-color: #FFCC00;
+  border-radius: 50%;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(255, 204, 0, 0.3);
+}
+
+.push-to-talk.pressed {
+  transform: scale(0.9);
+  background-color: #e6b800;
+}
+
+.small-button {
+  background-color: #FFCC00;
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 300px;
+}
+
+.transcription-box {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 40px 80px;
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  margin-left: 200px;
+}
+
+.typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.badge {
+  background: #fff;
+  color: #000;
+  padding: 20px 40px;
+  font-size: 40px;
+  font-weight: bold;
+  border-radius: 40px;
+}
+
+.logo {
+  font-size: 120px;
+  font-weight: 900;
+  letter-spacing: -2px;
+}
