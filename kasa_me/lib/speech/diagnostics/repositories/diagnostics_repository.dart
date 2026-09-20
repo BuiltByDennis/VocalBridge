@@ -33,7 +33,7 @@ class DiagnosticsRepository {
     );
   }
 
-  Future<List<RecognitionEventEntityData>> getEventsForProfile(String profileId) async {
+  Future<List<RecognitionEventEntity>> getEventsForProfile(String profileId) async {
     return await (_db.select(_db.recognitionEvents)
           ..where((t) => t.profileId.equals(profileId))
           ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc)]))

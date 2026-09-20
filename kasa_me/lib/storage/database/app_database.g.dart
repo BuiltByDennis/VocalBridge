@@ -988,6 +988,16 @@ class $PersonalProfilesTable extends PersonalProfiles
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("enable_correction_memory" IN (0, 1))'),
           defaultValue: const Constant(true));
+  static const VerificationMeta _isCalibratedMeta =
+      const VerificationMeta('isCalibrated');
+  @override
+  late final GeneratedColumn<bool> isCalibrated = GeneratedColumn<bool>(
+      'is_calibrated', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("is_calibrated" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -1013,6 +1023,7 @@ class $PersonalProfilesTable extends PersonalProfiles
         enablePersonalVocabulary,
         enablePhraseBiasing,
         enableCorrectionMemory,
+        isCalibrated,
         createdAt,
         updatedAt
       ];
@@ -1070,6 +1081,12 @@ class $PersonalProfilesTable extends PersonalProfiles
           enableCorrectionMemory.isAcceptableOrUnknown(
               data['enable_correction_memory']!, _enableCorrectionMemoryMeta));
     }
+    if (data.containsKey('is_calibrated')) {
+      context.handle(
+          _isCalibratedMeta,
+          isCalibrated.isAcceptableOrUnknown(
+              data['is_calibrated']!, _isCalibratedMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -1104,6 +1121,8 @@ class $PersonalProfilesTable extends PersonalProfiles
       enableCorrectionMemory: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}enable_correction_memory'])!,
+      isCalibrated: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_calibrated'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -1126,6 +1145,7 @@ class PersonalProfileEntity extends DataClass
   final bool enablePersonalVocabulary;
   final bool enablePhraseBiasing;
   final bool enableCorrectionMemory;
+  final bool isCalibrated;
   final DateTime createdAt;
   final DateTime updatedAt;
   const PersonalProfileEntity(
@@ -1136,6 +1156,7 @@ class PersonalProfileEntity extends DataClass
       required this.enablePersonalVocabulary,
       required this.enablePhraseBiasing,
       required this.enableCorrectionMemory,
+      required this.isCalibrated,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -1149,6 +1170,7 @@ class PersonalProfileEntity extends DataClass
         Variable<bool>(enablePersonalVocabulary);
     map['enable_phrase_biasing'] = Variable<bool>(enablePhraseBiasing);
     map['enable_correction_memory'] = Variable<bool>(enableCorrectionMemory);
+    map['is_calibrated'] = Variable<bool>(isCalibrated);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1163,6 +1185,7 @@ class PersonalProfileEntity extends DataClass
       enablePersonalVocabulary: Value(enablePersonalVocabulary),
       enablePhraseBiasing: Value(enablePhraseBiasing),
       enableCorrectionMemory: Value(enableCorrectionMemory),
+      isCalibrated: Value(isCalibrated),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1184,6 +1207,7 @@ class PersonalProfileEntity extends DataClass
           serializer.fromJson<bool>(json['enablePhraseBiasing']),
       enableCorrectionMemory:
           serializer.fromJson<bool>(json['enableCorrectionMemory']),
+      isCalibrated: serializer.fromJson<bool>(json['isCalibrated']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1201,6 +1225,7 @@ class PersonalProfileEntity extends DataClass
           serializer.toJson<bool>(enablePersonalVocabulary),
       'enablePhraseBiasing': serializer.toJson<bool>(enablePhraseBiasing),
       'enableCorrectionMemory': serializer.toJson<bool>(enableCorrectionMemory),
+      'isCalibrated': serializer.toJson<bool>(isCalibrated),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -1214,6 +1239,7 @@ class PersonalProfileEntity extends DataClass
           bool? enablePersonalVocabulary,
           bool? enablePhraseBiasing,
           bool? enableCorrectionMemory,
+          bool? isCalibrated,
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       PersonalProfileEntity(
@@ -1227,6 +1253,7 @@ class PersonalProfileEntity extends DataClass
         enablePhraseBiasing: enablePhraseBiasing ?? this.enablePhraseBiasing,
         enableCorrectionMemory:
             enableCorrectionMemory ?? this.enableCorrectionMemory,
+        isCalibrated: isCalibrated ?? this.isCalibrated,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -1251,6 +1278,9 @@ class PersonalProfileEntity extends DataClass
       enableCorrectionMemory: data.enableCorrectionMemory.present
           ? data.enableCorrectionMemory.value
           : this.enableCorrectionMemory,
+      isCalibrated: data.isCalibrated.present
+          ? data.isCalibrated.value
+          : this.isCalibrated,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1266,6 +1296,7 @@ class PersonalProfileEntity extends DataClass
           ..write('enablePersonalVocabulary: $enablePersonalVocabulary, ')
           ..write('enablePhraseBiasing: $enablePhraseBiasing, ')
           ..write('enableCorrectionMemory: $enableCorrectionMemory, ')
+          ..write('isCalibrated: $isCalibrated, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1281,6 +1312,7 @@ class PersonalProfileEntity extends DataClass
       enablePersonalVocabulary,
       enablePhraseBiasing,
       enableCorrectionMemory,
+      isCalibrated,
       createdAt,
       updatedAt);
   @override
@@ -1294,6 +1326,7 @@ class PersonalProfileEntity extends DataClass
           other.enablePersonalVocabulary == this.enablePersonalVocabulary &&
           other.enablePhraseBiasing == this.enablePhraseBiasing &&
           other.enableCorrectionMemory == this.enableCorrectionMemory &&
+          other.isCalibrated == this.isCalibrated &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1306,6 +1339,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
   final Value<bool> enablePersonalVocabulary;
   final Value<bool> enablePhraseBiasing;
   final Value<bool> enableCorrectionMemory;
+  final Value<bool> isCalibrated;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -1317,6 +1351,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
     this.enablePersonalVocabulary = const Value.absent(),
     this.enablePhraseBiasing = const Value.absent(),
     this.enableCorrectionMemory = const Value.absent(),
+    this.isCalibrated = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1329,6 +1364,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
     this.enablePersonalVocabulary = const Value.absent(),
     this.enablePhraseBiasing = const Value.absent(),
     this.enableCorrectionMemory = const Value.absent(),
+    this.isCalibrated = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1341,6 +1377,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
     Expression<bool>? enablePersonalVocabulary,
     Expression<bool>? enablePhraseBiasing,
     Expression<bool>? enableCorrectionMemory,
+    Expression<bool>? isCalibrated,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -1357,6 +1394,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
         'enable_phrase_biasing': enablePhraseBiasing,
       if (enableCorrectionMemory != null)
         'enable_correction_memory': enableCorrectionMemory,
+      if (isCalibrated != null) 'is_calibrated': isCalibrated,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1371,6 +1409,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
       Value<bool>? enablePersonalVocabulary,
       Value<bool>? enablePhraseBiasing,
       Value<bool>? enableCorrectionMemory,
+      Value<bool>? isCalibrated,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<int>? rowid}) {
@@ -1385,6 +1424,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
       enablePhraseBiasing: enablePhraseBiasing ?? this.enablePhraseBiasing,
       enableCorrectionMemory:
           enableCorrectionMemory ?? this.enableCorrectionMemory,
+      isCalibrated: isCalibrated ?? this.isCalibrated,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -1418,6 +1458,9 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
       map['enable_correction_memory'] =
           Variable<bool>(enableCorrectionMemory.value);
     }
+    if (isCalibrated.present) {
+      map['is_calibrated'] = Variable<bool>(isCalibrated.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1440,6 +1483,7 @@ class PersonalProfilesCompanion extends UpdateCompanion<PersonalProfileEntity> {
           ..write('enablePersonalVocabulary: $enablePersonalVocabulary, ')
           ..write('enablePhraseBiasing: $enablePhraseBiasing, ')
           ..write('enableCorrectionMemory: $enableCorrectionMemory, ')
+          ..write('isCalibrated: $isCalibrated, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -4667,6 +4711,7 @@ typedef $$PersonalProfilesTableCreateCompanionBuilder
   Value<bool> enablePersonalVocabulary,
   Value<bool> enablePhraseBiasing,
   Value<bool> enableCorrectionMemory,
+  Value<bool> isCalibrated,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -4680,6 +4725,7 @@ typedef $$PersonalProfilesTableUpdateCompanionBuilder
   Value<bool> enablePersonalVocabulary,
   Value<bool> enablePhraseBiasing,
   Value<bool> enableCorrectionMemory,
+  Value<bool> isCalibrated,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -4720,6 +4766,9 @@ class $$PersonalProfilesTableFilterComposer
   ColumnFilters<bool> get enableCorrectionMemory => $composableBuilder(
       column: $table.enableCorrectionMemory,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isCalibrated => $composableBuilder(
+      column: $table.isCalibrated, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -4764,6 +4813,10 @@ class $$PersonalProfilesTableOrderingComposer
       column: $table.enableCorrectionMemory,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get isCalibrated => $composableBuilder(
+      column: $table.isCalibrated,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -4800,6 +4853,9 @@ class $$PersonalProfilesTableAnnotationComposer
 
   GeneratedColumn<bool> get enableCorrectionMemory => $composableBuilder(
       column: $table.enableCorrectionMemory, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCalibrated => $composableBuilder(
+      column: $table.isCalibrated, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -4843,6 +4899,7 @@ class $$PersonalProfilesTableTableManager extends RootTableManager<
             Value<bool> enablePersonalVocabulary = const Value.absent(),
             Value<bool> enablePhraseBiasing = const Value.absent(),
             Value<bool> enableCorrectionMemory = const Value.absent(),
+            Value<bool> isCalibrated = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -4855,6 +4912,7 @@ class $$PersonalProfilesTableTableManager extends RootTableManager<
             enablePersonalVocabulary: enablePersonalVocabulary,
             enablePhraseBiasing: enablePhraseBiasing,
             enableCorrectionMemory: enableCorrectionMemory,
+            isCalibrated: isCalibrated,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,
@@ -4867,6 +4925,7 @@ class $$PersonalProfilesTableTableManager extends RootTableManager<
             Value<bool> enablePersonalVocabulary = const Value.absent(),
             Value<bool> enablePhraseBiasing = const Value.absent(),
             Value<bool> enableCorrectionMemory = const Value.absent(),
+            Value<bool> isCalibrated = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -4879,6 +4938,7 @@ class $$PersonalProfilesTableTableManager extends RootTableManager<
             enablePersonalVocabulary: enablePersonalVocabulary,
             enablePhraseBiasing: enablePhraseBiasing,
             enableCorrectionMemory: enableCorrectionMemory,
+            isCalibrated: isCalibrated,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,

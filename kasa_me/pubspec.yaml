@@ -44,7 +44,7 @@ dependencies:
   sqlite3_flutter_libs: any
   path_provider: ^2.1.5
   path: ^1.9.0
-  flutter_secure_storage: ^10.3.3
+  flutter_secure_storage: ^9.0.0
   record: ^6.2.1
   just_audio: ^0.9.46
   sqlite3: ^2.9.4

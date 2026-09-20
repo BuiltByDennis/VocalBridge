@@ -247,7 +247,7 @@ class TranscriptionScreen extends ConsumerWidget {
               ),
             ),
             GestureDetector(
-              onTap: isListening ? notifier.stopListening : notifier.startListening,
+              onTap: isListening ? notifier.stopPushToTalk : notifier.startPushToTalk,
               child: Container(
                 width: 48,
                 height: 48,

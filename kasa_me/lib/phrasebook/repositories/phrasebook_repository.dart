@@ -37,7 +37,7 @@ class PhrasebookRepository {
     if (existing == null) {
       await _db.into(_db.phrasebookEntries).insert(
             PhrasebookEntriesCompanion.insert(
-              profileId: Value(profileId),
+              profileId: profileId,
               phrase: text,
               category: Value(category),
             ),

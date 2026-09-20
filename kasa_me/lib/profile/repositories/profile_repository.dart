@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import 'package:kasa_me/storage/database/app_database.dart';
+import 'package:kasa_me/ui/home/home_communication_notifier.dart' show databaseProvider;
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return ProfileRepository(ref.watch(databaseProvider));
@@ -11,7 +12,7 @@ class ProfileRepository {
 
   ProfileRepository(this._db);
 
-  Future<PersonalProfileEntityData> getActiveProfile(String profileId) async {
+  Future<PersonalProfileEntity> getActiveProfile(String profileId) async {
     final existing = await (_db.select(_db.personalProfiles)
           ..where((t) => t.profileId.equals(profileId)))
         .getSingleOrNull();
