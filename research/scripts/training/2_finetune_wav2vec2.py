@@ -8,7 +8,7 @@ import numpy as np
 
 # Paths
 DATASET_DIR = "../../datasets/ugakan_impaired_speech/hf_dataset"
-MODEL_ID = "asr-africa/wav2vec2-xls-r-akan-100-hours"
+MODEL_ID = "asr-africa/wav2vec2-xls-r-akan-50-hours"
 OUTPUT_DIR = "../../models/wav2vec2_finetuned"
 
 @dataclass

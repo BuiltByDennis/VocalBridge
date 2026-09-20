@@ -28,7 +28,7 @@ Copy and paste these prompts phase-by-phase into your Google Colab AI assistant 
 ## Phase 3: Fine-Tuning Wav2Vec2
 
 **Prompt to paste in Colab:**
-> "The dataset is ready. We will now fine-tune the `asr-africa/wav2vec2-xls-r-akan-100-hours` model. 
+> "The dataset is ready. We will now fine-tune the `asr-africa/wav2vec2-xls-r-akan-50-hours` model. 
 > 
 > Please verify that the Colab runtime is set to GPU (T4 or better). Then, create a Colab cell to run my training script: `!python VocalBridge/research/scripts/training/2_finetune_wav2vec2.py`. 
 > 

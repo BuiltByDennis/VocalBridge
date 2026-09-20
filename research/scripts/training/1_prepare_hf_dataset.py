@@ -8,7 +8,7 @@ from transformers import Wav2Vec2Processor
 BASE_DIR = "../../datasets/ugakan_impaired_speech"
 SPLITS_DIR = f"{BASE_DIR}/splits"
 OUTPUT_DIR = f"{BASE_DIR}/hf_dataset"
-MODEL_ID = "asr-africa/wav2vec2-xls-r-akan-100-hours"
+MODEL_ID = "asr-africa/wav2vec2-xls-r-akan-50-hours"
 
 def load_jsonl(file_path):
     data = []
