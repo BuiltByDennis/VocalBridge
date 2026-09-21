@@ -62,9 +62,13 @@ class SherpaSpeechEngine implements SpeechEngine {
         await modelDir.create(recursive: true);
       }
 
-      final encoderFile = await _copyAssetToFile(modelConfig.encoderPath, '${modelDir.path}/encoder.onnx');
-      final decoderFile = await _copyAssetToFile(modelConfig.decoderPath, '${modelDir.path}/decoder.onnx');
-      final joinerFile = await _copyAssetToFile(modelConfig.joinerPath, '${modelDir.path}/joiner.onnx');
+      if (modelConfig.encoderPath == null || modelConfig.decoderPath == null || modelConfig.joinerPath == null) {
+        throw Exception("encoderPath, decoderPath, and joinerPath cannot be null for Zipformer Transducer models.");
+      }
+
+      final encoderFile = await _copyAssetToFile(modelConfig.encoderPath!, '${modelDir.path}/encoder.onnx');
+      final decoderFile = await _copyAssetToFile(modelConfig.decoderPath!, '${modelDir.path}/decoder.onnx');
+      final joinerFile = await _copyAssetToFile(modelConfig.joinerPath!, '${modelDir.path}/joiner.onnx');
       final tokensFile = await _copyAssetToFile(modelConfig.tokensPath, '${modelDir.path}/tokens.txt');
 
       // Use ONLY the transducer config. The committed model files (encoder/decoder/joiner)
