@@ -98,7 +98,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
                             (state.partialTranscript.isNotEmpty ? 1 : 0),
                         itemBuilder: (context, i) {
                           if (i < _messages.length) {
-                            return _buildMessagePair(context, notifier, _messages[i]);
+                            return _buildMessagePair(context, notifier, _messages[i], i);
                           }
                           // Partial transcript preview bubble
                           return _buildPartialBubble(state.partialTranscript);
@@ -161,6 +161,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     BuildContext context,
     HomeCommunicationNotifier notifier,
     _Message msg,
+    int index,
   ) {
     final hasDiff = msg.personalized != msg.raw;
     return Column(
@@ -244,7 +245,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
                       const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
                 ),
                 const SizedBox(height: 10),
-                _buildCorrectionChips(context, notifier, msg),
+                _buildCorrectionChips(context, notifier, msg, index),
                 // Speak button
                 const SizedBox(height: 10),
                 Row(
@@ -253,7 +254,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
                       icon: Icons.volume_up_rounded,
                       label: 'Speak',
                       color: AppTheme.primaryPurple,
-                      onTap: notifier.speakTranscript,
+                      onTap: () => notifier.speakText(msg.personalized),
                     ),
                     const SizedBox(width: 10),
                     _actionButton(
@@ -277,6 +278,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     BuildContext context,
     HomeCommunicationNotifier notifier,
     _Message msg,
+    int index,
   ) {
     final words = msg.personalized.split(' ');
     return Wrap(
@@ -284,7 +286,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
       runSpacing: 6,
       children: words.map((word) {
         return GestureDetector(
-          onTap: () => _showCorrectionDialog(context, notifier, word),
+          onTap: () => _showCorrectionDialog(context, notifier, word, index),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -308,6 +310,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     BuildContext context,
     HomeCommunicationNotifier notifier,
     String word,
+    int messageIndex,
   ) {
     final controller = TextEditingController(text: word);
     showDialog(
@@ -335,19 +338,34 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final intended = controller.text.trim();
               if (intended.isNotEmpty && intended != word) {
-                notifier.applyWordCorrection(word, intended);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Correction saved: "$word" → "$intended"'),
-                    backgroundColor: Colors.green.shade600,
-                  ),
-                );
+                final msg = _messages[messageIndex];
+                final newPersonalized = await notifier.applyWordCorrection(word, intended, msg.raw);
+                
+                if (mounted) {
+                  setState(() {
+                    _messages[messageIndex] = _Message(
+                      raw: msg.raw,
+                      personalized: newPersonalized,
+                      confidence: msg.confidence,
+                      timestamp: msg.timestamp,
+                    );
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Correction saved: "$word" → "$intended"'),
+                      backgroundColor: Colors.green.shade600,
+                    ),
+                  );
+                  // Pronounce the corrected words with the rest of the sentence
+                  notifier.speakText(newPersonalized);
+                }
               }
-              Navigator.pop(context);
+              if (mounted) {
+                Navigator.pop(context);
+              }
             },
             child: const Text('Save Correction'),
           ),

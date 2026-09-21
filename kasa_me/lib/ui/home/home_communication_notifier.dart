@@ -300,25 +300,30 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     _phrasebookRepository.incrementUsage(entry.id);
   }
 
-  Future<void> applyWordCorrection(String observed, String intended) async {
+  Future<String> applyWordCorrection(String observed, String intended, String rawTranscriptContext) async {
     await _personalizationPipeline.applyCorrection(
       original: observed,
       corrected: intended,
       profileId: 'default_user',
     );
-    final pRes = await _personalizationPipeline.processTranscript(state.rawTranscript, confidence: state.confidence);
+    final pRes = await _personalizationPipeline.processTranscript(rawTranscriptContext, confidence: state.confidence);
     
     // Log telemetry for the correction
     await _diagnosticsRepository.logRecognitionEvent(
       profileId: 'default_user',
-      rawTranscript: state.rawTranscript,
+      rawTranscript: rawTranscriptContext,
       personalizedTranscript: pRes.personalizedTranscript,
       confidence: state.confidence,
       wasCorrected: true,
       context: 'word_correction_chip',
     );
 
-    state = state.copyWith(personalizedTranscript: pRes.personalizedTranscript);
+    // If we're correcting the most recent utterance, update global state
+    if (rawTranscriptContext == state.rawTranscript) {
+      state = state.copyWith(personalizedTranscript: pRes.personalizedTranscript);
+    }
+    
+    return pRes.personalizedTranscript;
   }
 
   void clearTranscript() {
@@ -338,11 +343,15 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         ? state.personalizedTranscript 
         : state.rawTranscript;
 
-    if (textToSpeak.trim().isEmpty) return;
+    await speakText(textToSpeak);
+  }
+  
+  Future<void> speakText(String text) async {
+    if (text.trim().isEmpty) return;
 
     state = state.copyWith(isSpeaking: true);
     try {
-      await _ttsEngine.speak(textToSpeak);
+      await _ttsEngine.speak(text);
     } catch (e) {
       state = state.copyWith(errorMessage: 'Failed to speak: $e');
     } finally {
