@@ -12,7 +12,7 @@ import '../../core/permissions/permission_service.dart';
 
 final personalizationPipelineProvider = Provider<PersonalizationPipeline>((ref) => PersonalizationPipeline());
 
-final calibrationServiceProvider = Provider.autoDispose<CalibrationService>((ref) {
+final calibrationServiceProvider = Provider<CalibrationService>((ref) {
   final service = CalibrationService(
     personalizationPipeline: ref.watch(personalizationPipelineProvider),
   );
@@ -38,26 +38,27 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
   String? _lastRecognized;
   bool _isProcessing = false;
   
-  late final CalibrationService _calibrationService;
   StreamSubscription? _resultSub;
 
   @override
   void initState() {
     super.initState();
-    _calibrationService = ref.read(calibrationServiceProvider);
     
-    _resultSub = _calibrationService.onResult.listen((result) {
-      if (!mounted) return;
-      setState(() {
-        _isRecording = false;
-        _isProcessing = false;
-        _lastRecognized = result.recognizedPhrase;
-      });
-      
-      // Briefly show result then move to next
-      Future.delayed(const Duration(milliseconds: 1500), () {
+    // Defer listening to the stream until after the first frame to safely use ref.read
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resultSub = ref.read(calibrationServiceProvider).onResult.listen((result) {
         if (!mounted) return;
-        _moveToNextStep();
+        setState(() {
+          _isRecording = false;
+          _isProcessing = false;
+          _lastRecognized = result.recognizedPhrase;
+        });
+        
+        // Briefly show result then move to next
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (!mounted) return;
+          _moveToNextStep();
+        });
       });
     });
   }
@@ -105,7 +106,7 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
     });
     final target = CalibrationService.calibrationPhrases[_currentStepIndex];
     try {
-      await _calibrationService.startRecordingForPhrase(target);
+      await ref.read(calibrationServiceProvider).startRecordingForPhrase(target);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -126,7 +127,7 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
     });
     
     try {
-      await _calibrationService.stopRecording();
+      await ref.read(calibrationServiceProvider).stopRecording();
     } catch (e) {
       if (mounted) {
         setState(() {
