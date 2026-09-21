@@ -74,7 +74,7 @@ class OfflineSherpaSpeechEngine implements SpeechEngine {
           numThreads: 2,
           debug: false,
           provider: 'cpu',
-          modelType: 'whisper',
+          modelType: '',
         );
       } else {
         if (modelConfig.modelPath == null) {

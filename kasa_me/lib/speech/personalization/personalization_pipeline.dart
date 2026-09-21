@@ -44,14 +44,15 @@ class PersonalizationPipeline {
     required String original,
     required String corrected,
     required String profileId,
+    int frequency = 5,
   }) async {
     final isPhrase = original.contains(' ') || corrected.contains(' ');
     
     bool added;
     if (isPhrase) {
-      added = safetyGuard.validateAndAddPhraseMapping(original, corrected);
+      added = safetyGuard.validateAndAddPhraseMapping(original, corrected, frequency: frequency);
     } else {
-      added = safetyGuard.validateAndAddWordMapping(original, corrected);
+      added = safetyGuard.validateAndAddWordMapping(original, corrected, frequency: frequency);
     }
 
     if (added && repository != null) {
