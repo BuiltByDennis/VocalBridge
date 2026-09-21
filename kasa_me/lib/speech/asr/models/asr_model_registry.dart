@@ -16,16 +16,15 @@ class AsrModelRegistry {
   );
 
   static const AsrModelConfig twiModel = AsrModelConfig(
-    id: 'twi_edge_v1',
-    displayName: 'Twi (UG Dataset) Edge v1',
-    language: 'twi',
-    encoderPath: 'assets/models/asr/twi/encoder.onnx',
-    decoderPath: 'assets/models/asr/twi/decoder.onnx',
-    joinerPath: 'assets/models/asr/twi/joiner.onnx',
+    id: 'twi_ugakan_hf_v1',
+    displayName: 'Twi (Akan) - HuggingFace Wav2Vec2',
+    language: 'Twi (Akan)',
+    architecture: AsrArchitecture.wav2vec2Ctc,
+    modelPath: 'assets/models/asr/twi/model.onnx',
     tokensPath: 'assets/models/asr/twi/tokens.txt',
     sampleRate: 16000,
-    streaming: true,
-    estimatedSizeMb: 45,
+    streaming: false,
+    estimatedSizeMb: 1200,
     isDefault: false,
   );
 

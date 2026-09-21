@@ -10,30 +10,18 @@ import '../../core/logging/app_logger.dart';
 import '../asr/models/asr_model_config.dart';
 import 'speech_engine.dart';
 
-enum EngineLifecycleState {
-  notLoaded,
-  loading,
-  ready,
-  listening,
-  processing,
-  error,
-  disposing,
-  disposed,
-}
-
-class SherpaSpeechEngine implements SpeechEngine {
+class OfflineSherpaSpeechEngine implements SpeechEngine {
   final AsrModelConfig modelConfig;
-  sherpa.OnlineRecognizer? _recognizer;
-  sherpa.OnlineStream? _stream;
+  sherpa.OfflineRecognizer? _recognizer;
 
   final StreamController<SpeechEngineEvent> _eventController =
       StreamController<SpeechEngineEvent>.broadcast();
 
   EngineLifecycleState _lifecycleState = EngineLifecycleState.notLoaded;
+  List<Float32List> _audioBuffer = [];
   int _totalAudioSamples = 0;
-  String _lastPartialText = '';
 
-  SherpaSpeechEngine(this.modelConfig);
+  OfflineSherpaSpeechEngine(this.modelConfig);
 
   EngineLifecycleState get lifecycleState => _lifecycleState;
 
@@ -53,7 +41,7 @@ class SherpaSpeechEngine implements SpeechEngine {
     }
 
     _lifecycleState = EngineLifecycleState.loading;
-    AppLogger.log('ASR', 'Initializing SherpaSpeechEngine with model ${modelConfig.id}');
+    AppLogger.log('ASR', 'Initializing OfflineSherpaSpeechEngine with model ${modelConfig.id}');
 
     try {
       final tempDir = await getTemporaryDirectory();
@@ -62,27 +50,29 @@ class SherpaSpeechEngine implements SpeechEngine {
         await modelDir.create(recursive: true);
       }
 
-      final encoderFile = await _copyAssetToFile(modelConfig.encoderPath, '${modelDir.path}/encoder.onnx');
-      final decoderFile = await _copyAssetToFile(modelConfig.decoderPath, '${modelDir.path}/decoder.onnx');
-      final joinerFile = await _copyAssetToFile(modelConfig.joinerPath, '${modelDir.path}/joiner.onnx');
+      if (modelConfig.modelPath == null) {
+        throw Exception("modelPath cannot be null for Wav2Vec2 CTC models.");
+      }
+
+      final modelFile = await _copyAssetToFile(modelConfig.modelPath!, '${modelDir.path}/model.onnx');
       final tokensFile = await _copyAssetToFile(modelConfig.tokensPath, '${modelDir.path}/tokens.txt');
 
-      // Use ONLY the transducer config. The committed model files (encoder/decoder/joiner)
-      // are a Zipformer transducer. Setting zipformer2Ctc simultaneously is incorrect and
-      // causes a native crash at runtime.
-      final transducer = sherpa.OnlineTransducerModelConfig(
-        encoder: encoderFile.path,
-        decoder: decoderFile.path,
-        joiner: joinerFile.path,
+      final nemoCtc = sherpa.OfflineNemoEncDecCtcModelConfig(
+        model: '',
       );
 
-      final modelCfg = sherpa.OnlineModelConfig(
-        transducer: transducer,
+      final wav2vec2Ctc = sherpa.OfflineWav2Vec2CtcModelConfig(
+        model: modelFile.path,
+      );
+
+      final modelCfg = sherpa.OfflineModelConfig(
+        nemoCtc: nemoCtc,
+        wav2vec2Ctc: wav2vec2Ctc,
         tokens: tokensFile.path,
         numThreads: 2,
         debug: false,
         provider: 'cpu',
-        modelType: 'zipformer2',
+        modelType: 'wav2vec2',
       );
 
       final featCfg = sherpa.FeatureConfig(
@@ -90,22 +80,18 @@ class SherpaSpeechEngine implements SpeechEngine {
         featureDim: 80,
       );
 
-      final recognizerCfg = sherpa.OnlineRecognizerConfig(
+      final recognizerCfg = sherpa.OfflineRecognizerConfig(
         model: modelCfg,
         feat: featCfg,
-        enableEndpoint: true,
-        rule1MinTrailingSilence: 2.4,
-        rule2MinTrailingSilence: 1.2,
-        rule3MinUtteranceLength: 20.0,
       );
 
-      _recognizer = sherpa.OnlineRecognizer(recognizerCfg);
+      _recognizer = sherpa.OfflineRecognizer(recognizerCfg);
       _lifecycleState = EngineLifecycleState.ready;
       _eventController.add(const EngineReady());
-      AppLogger.log('ASR', 'SherpaSpeechEngine successfully initialized');
+      AppLogger.log('ASR', 'OfflineSherpaSpeechEngine successfully initialized');
     } catch (e, stack) {
       _lifecycleState = EngineLifecycleState.error;
-      final msg = 'Failed to initialize speech recognition model: $e';
+      final msg = 'Failed to initialize offline speech recognition model: $e';
       AppLogger.error('ASR', msg, e, stack);
       _eventController.add(SpeechEngineError(msg, error: e));
     }
@@ -129,21 +115,15 @@ class SherpaSpeechEngine implements SpeechEngine {
       return;
     }
 
-    try {
-      _stream = _recognizer!.createStream(hotwords: hotwords);
-      _lifecycleState = EngineLifecycleState.listening;
-      _totalAudioSamples = 0;
-      _lastPartialText = '';
-      _eventController.add(const SpeechStarted());
-    } catch (e) {
-      _lifecycleState = EngineLifecycleState.error;
-      _eventController.add(SpeechEngineError('Failed to start speech session: $e', error: e));
-    }
+    _lifecycleState = EngineLifecycleState.listening;
+    _audioBuffer = [];
+    _totalAudioSamples = 0;
+    _eventController.add(const SpeechStarted());
   }
 
   @override
   Future<void> acceptAudio(Uint8List pcm16) async {
-    if (_lifecycleState != EngineLifecycleState.listening || _stream == null || _recognizer == null) {
+    if (_lifecycleState != EngineLifecycleState.listening) {
       return;
     }
 
@@ -159,25 +139,15 @@ class SherpaSpeechEngine implements SpeechEngine {
         float32List[i] = sample16 / 32768.0;
       }
 
-      _stream!.acceptWaveform(samples: float32List, sampleRate: modelConfig.sampleRate);
-
-      while (_recognizer!.isReady(_stream!)) {
-        _recognizer!.decode(_stream!);
-      }
-
-      final text = _recognizer!.getResult(_stream!).text.trim();
-      if (text.isNotEmpty && text != _lastPartialText) {
-        _lastPartialText = text;
-        _eventController.add(PartialTranscript(text));
-      }
+      _audioBuffer.add(float32List);
     } catch (e) {
-      AppLogger.error('ASR', 'Error during streaming audio accept', e);
+      AppLogger.error('ASR', 'Error buffering audio', e);
     }
   }
 
   @override
   Future<void> stop() async {
-    if (_lifecycleState != EngineLifecycleState.listening || _recognizer == null || _stream == null) {
+    if (_lifecycleState != EngineLifecycleState.listening || _recognizer == null) {
       return;
     }
 
@@ -186,36 +156,44 @@ class SherpaSpeechEngine implements SpeechEngine {
 
     final startTime = DateTime.now();
     try {
-      // Signal the stream that no more audio will arrive, forcing a flush
-      _stream!.inputFinished();
+      final stream = _recognizer!.createStream();
 
-      while (_recognizer!.isReady(_stream!)) {
-        _recognizer!.decode(_stream!);
+      // Combine all buffered audio chunks
+      final allSamples = Float32List(_totalAudioSamples);
+      int offset = 0;
+      for (var chunk in _audioBuffer) {
+        allSamples.setAll(offset, chunk);
+        offset += chunk.length;
       }
 
-      final text = _recognizer!.getResult(_stream!).text.trim();
+      stream.acceptWaveform(samples: allSamples, sampleRate: modelConfig.sampleRate);
+      
+      _recognizer!.decode(stream);
+      final resultText = _recognizer!.getResult(stream).text.trim();
+      stream.free();
+
       final elapsedInference = DateTime.now().difference(startTime);
       final audioDuration = Duration(
         milliseconds: (_totalAudioSamples / modelConfig.sampleRate * 1000).round(),
       );
 
       final result = RecognitionResult(
-        text: text,
-        confidence: text.isNotEmpty ? 0.90 : null,
+        text: resultText,
+        confidence: resultText.isNotEmpty ? 0.90 : null,
         processingTime: elapsedInference,
         audioDuration: audioDuration.inMilliseconds > 0
             ? audioDuration
             : const Duration(milliseconds: 100),
       );
 
-      _eventController.add(FinalTranscript(text, result: result));
+      _eventController.add(FinalTranscript(resultText, result: result));
       _lifecycleState = EngineLifecycleState.ready;
       _eventController.add(const EngineReady());
     } catch (e) {
       _lifecycleState = EngineLifecycleState.error;
       _eventController.add(SpeechEngineError('Error finalizing speech transcription: $e', error: e));
     } finally {
-      _stream = null;
+      _audioBuffer = [];
     }
   }
 
@@ -227,13 +205,6 @@ class SherpaSpeechEngine implements SpeechEngine {
     }
     _lifecycleState = EngineLifecycleState.disposing;
 
-    // Free the active stream before nulling the recognizer
-    try {
-      _stream?.free();
-    } catch (_) {}
-    _stream = null;
-
-    // Free the recognizer native resources
     try {
       _recognizer?.free();
     } catch (_) {}

@@ -75,6 +75,10 @@ flutter:
 
   assets:
     - assets/models/asr/
+    - assets/models/asr/english/
+    - assets/models/asr/twi/
+    - assets/models/asr/ewe/
+    - assets/models/asr/dagbani/
     - assets/models/vad/
     - assets/models/tts/
     - assets/models/speaker/
