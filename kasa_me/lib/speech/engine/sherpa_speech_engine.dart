@@ -135,7 +135,11 @@ class SherpaSpeechEngine implements SpeechEngine {
     }
 
     try {
-      _stream = _recognizer!.createStream(hotwords: hotwords);
+      // WARNING: Passing hotwords to createStream without configuring a bpe_model
+      // or modeling_unit in the OnlineModelConfig causes Sherpa-ONNX to crash
+      // natively (SIGSEGV) in C++ when it tries to compile the context graph.
+      // We explicitly ignore the hotwords parameter here to prevent the crash.
+      _stream = _recognizer!.createStream();
       _lifecycleState = EngineLifecycleState.listening;
       _totalAudioSamples = 0;
       _lastPartialText = '';
