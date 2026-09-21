@@ -16,7 +16,7 @@ class _LanguageOption {
 
 const _languages = [
   _LanguageOption('English (Ghana)', 'en_GH', '🇬🇭'),
-  _LanguageOption('Twi', 'twi', '🇬🇭', comingSoon: true),
+  _LanguageOption('Twi', 'twi', '🇬🇭', comingSoon: false),
   _LanguageOption('Ewe', 'ewe', '🇬🇭', comingSoon: true),
   _LanguageOption('Dagbani', 'dagbani', '🇬🇭', comingSoon: true),
 ];

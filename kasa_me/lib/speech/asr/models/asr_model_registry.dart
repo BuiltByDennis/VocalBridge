@@ -18,7 +18,7 @@ class AsrModelRegistry {
   static const AsrModelConfig twiModel = AsrModelConfig(
     id: 'twi_ugakan_hf_v1',
     displayName: 'Twi (Akan) - HuggingFace Wav2Vec2',
-    language: 'Twi (Akan)',
+    language: 'twi',
     architecture: AsrArchitecture.wav2vec2Ctc,
     modelPath: 'assets/models/asr/twi/model.onnx',
     tokensPath: 'assets/models/asr/twi/tokens.txt',
