@@ -17,7 +17,8 @@ class SpeechEngineFactory {
       return MockSpeechEngine(modelConfig);
     }
     
-    if (modelConfig.architecture == AsrArchitecture.wav2vec2Ctc) {
+    if (modelConfig.architecture == AsrArchitecture.wav2vec2Ctc || 
+        modelConfig.architecture == AsrArchitecture.whisper) {
       return OfflineSherpaSpeechEngine(modelConfig);
     }
     

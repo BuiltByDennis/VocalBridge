@@ -51,25 +51,50 @@ class OfflineSherpaSpeechEngine implements SpeechEngine {
         await modelDir.create(recursive: true);
       }
 
-      if (modelConfig.modelPath == null) {
-        throw Exception("modelPath cannot be null for Wav2Vec2 CTC models.");
-      }
-
-      final modelFile = await _copyAssetToFile(modelConfig.modelPath!, '${modelDir.path}/model.onnx');
+      sherpa.OfflineModelConfig modelCfg;
       final tokensFile = await _copyAssetToFile(modelConfig.tokensPath, '${modelDir.path}/tokens.txt');
 
-      final nemoCtc = sherpa.OfflineNemoEncDecCtcModelConfig(
-        model: modelFile.path,
-      );
+      if (modelConfig.architecture == AsrArchitecture.whisper) {
+        if (modelConfig.encoderPath == null || modelConfig.decoderPath == null) {
+          throw Exception("encoderPath and decoderPath cannot be null for Whisper models.");
+        }
+        final encoderFile = await _copyAssetToFile(modelConfig.encoderPath!, '${modelDir.path}/encoder.onnx');
+        final decoderFile = await _copyAssetToFile(modelConfig.decoderPath!, '${modelDir.path}/decoder.onnx');
+        
+        final whisperCfg = sherpa.OfflineWhisperModelConfig(
+          encoder: encoderFile.path,
+          decoder: decoderFile.path,
+          language: 'en',
+          task: 'transcribe',
+        );
 
-      final modelCfg = sherpa.OfflineModelConfig(
-        nemoCtc: nemoCtc,
-        tokens: tokensFile.path,
-        numThreads: 2,
-        debug: false,
-        provider: 'cpu',
-        modelType: 'wav2vec2',
-      );
+        modelCfg = sherpa.OfflineModelConfig(
+          whisper: whisperCfg,
+          tokens: tokensFile.path,
+          numThreads: 2,
+          debug: false,
+          provider: 'cpu',
+          modelType: 'whisper',
+        );
+      } else {
+        if (modelConfig.modelPath == null) {
+          throw Exception("modelPath cannot be null for Wav2Vec2 CTC models.");
+        }
+        final modelFile = await _copyAssetToFile(modelConfig.modelPath!, '${modelDir.path}/model.onnx');
+        
+        final nemoCtc = sherpa.OfflineNemoEncDecCtcModelConfig(
+          model: modelFile.path,
+        );
+
+        modelCfg = sherpa.OfflineModelConfig(
+          nemoCtc: nemoCtc,
+          tokens: tokensFile.path,
+          numThreads: 2,
+          debug: false,
+          provider: 'cpu',
+          modelType: 'wav2vec2',
+        );
+      }
 
       final featCfg = sherpa.FeatureConfig(
         sampleRate: modelConfig.sampleRate,

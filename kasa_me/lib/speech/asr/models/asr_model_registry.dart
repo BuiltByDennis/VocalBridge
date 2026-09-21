@@ -3,15 +3,15 @@ import 'asr_model_config.dart';
 class AsrModelRegistry {
   static const AsrModelConfig defaultEnglishModel = AsrModelConfig(
     id: 'english_edge_v1',
-    displayName: 'English (Ghana) Edge Zipformer v1',
+    displayName: 'English (Ghana) Whisper Tiny',
     language: 'en_GH',
-    encoderPath: 'assets/models/asr/english/encoder.onnx',
-    decoderPath: 'assets/models/asr/english/decoder.onnx',
-    joinerPath: 'assets/models/asr/english/joiner.onnx',
-    tokensPath: 'assets/models/asr/english/tokens.txt',
+    architecture: AsrArchitecture.whisper,
+    encoderPath: 'assets/models/asr/english/whisper-tiny/tiny.en-encoder.int8.onnx',
+    decoderPath: 'assets/models/asr/english/whisper-tiny/tiny.en-decoder.int8.onnx',
+    tokensPath: 'assets/models/asr/english/whisper-tiny/tiny.en-tokens.txt',
     sampleRate: 16000,
-    streaming: true,
-    estimatedSizeMb: 44,
+    streaming: false,
+    estimatedSizeMb: 75,
     isDefault: true,
   );
 

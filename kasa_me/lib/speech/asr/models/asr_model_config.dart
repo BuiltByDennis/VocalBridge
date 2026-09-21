@@ -1,6 +1,7 @@
 enum AsrArchitecture {
   zipformerTransducer,
   wav2vec2Ctc,
+  whisper,
 }
 
 class AsrModelConfig {
