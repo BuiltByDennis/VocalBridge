@@ -278,6 +278,14 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
                   ),
                 ),
                 GestureDetector(
+                  // Hold-to-speak: press and hold to record, release to process
+                  onLongPressStart: (_) {
+                    if (isReady) notifier.startPushToTalk();
+                  },
+                  onLongPressEnd: (_) {
+                    if (isListening) notifier.stopPushToTalk();
+                  },
+                  // Tap also works as a toggle for accessibility
                   onTap: () {
                     if (isListening) {
                       notifier.stopPushToTalk();
