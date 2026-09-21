@@ -149,7 +149,7 @@ class CalibrationService {
       // Write simple WAV header
       const channels = 1;
       const sampleRate = 16000;
-      final byteRate = sampleRate * channels * 2;
+      const byteRate = sampleRate * channels * 2;
       final dataSize = pcmData.length;
       final fileSize = 36 + dataSize;
       
