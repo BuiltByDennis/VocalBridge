@@ -84,7 +84,7 @@ class SherpaSpeechEngine implements SpeechEngine {
         transducer: transducer,
         tokens: tokensFile.path,
         numThreads: 2,
-        debug: false,
+        debug: true,  // Temporarily enabled to diagnose load failure
         provider: 'cpu',
         modelType: 'zipformer2',
       );

@@ -182,10 +182,14 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       // rather than rethrowing, so we must check isInitialized directly to avoid
       // a race condition where we set state to 'ready' while the engine is broken.
       if (!_speechEngine.isInitialized) {
-        state = state.copyWith(
-          engineState: UiEngineState.error,
-          errorMessage: 'Speech recognition model failed to load. Check logs for details.',
-        );
+        // The stream handler (_handleEngineEvent) has already set a specific error
+        // message from the Sherpa engine. Only set a fallback if nothing was set.
+        if (state.engineState != UiEngineState.error) {
+          state = state.copyWith(
+            engineState: UiEngineState.error,
+            errorMessage: 'Speech recognition model failed to load. Please reinstall the app.',
+          );
+        }
         return;
       }
 
