@@ -58,7 +58,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: AppTheme.primaryPurple.withOpacity(0.3)),
                       ),
-                      child: Text(
+                      child: const Text(
                         'Kasa Me · Speak for yourself',
                         style: TextStyle(
                           color: AppTheme.primaryPurple,
@@ -137,7 +137,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     Center(
                       child: TextButton(
                         onPressed: () => context.go('/home'),
-                        child: Text(
+                        child: const Text(
                           'Already set up? Go to app →',
                           style: TextStyle(
                             color: AppTheme.textSecondary,

@@ -41,11 +41,6 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
       });
     }
 
-    final isListening = state.engineState == UiEngineState.listening;
-    final displayText = state.partialTranscript.isNotEmpty
-        ? state.partialTranscript
-        : (_messages.isNotEmpty ? _messages.last.personalized : '');
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(

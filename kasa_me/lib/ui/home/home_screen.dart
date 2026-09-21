@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
-import 'home_communication_notifier.dart';
 import 'home_stats_notifier.dart';
 import 'voice_agent_screen.dart';
 

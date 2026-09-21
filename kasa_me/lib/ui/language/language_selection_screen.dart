@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../speech/asr/models/asr_model_registry.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../ui/home/home_communication_notifier.dart' show databaseProvider;
 import '../theme/app_theme.dart';

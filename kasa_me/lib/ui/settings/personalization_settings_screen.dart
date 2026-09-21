@@ -282,12 +282,15 @@ class _PersonalizationSettingsScreenState
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
               final db = ref.read(databaseProvider);
+              // Capture scaffoldMessenger before async gap
+              final messenger = ScaffoldMessenger.of(context);
+              final nav = Navigator.of(context);
               await db.delete(db.wordCorrections).go();
               await db.delete(db.phraseCorrections).go();
-              Navigator.pop(context);
+              nav.pop();
               await _load();
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(
                       content: Text('Personalization data reset.')),
                 );

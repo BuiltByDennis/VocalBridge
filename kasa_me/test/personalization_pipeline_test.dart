@@ -26,12 +26,12 @@ void main() {
     expect(formatted, 'send fifty GH₵ via MoMo');
   });
 
-  test('PersonalizationPipeline preserves rawTranscript and yields personalizedTranscript', () {
+  test('PersonalizationPipeline preserves rawTranscript and yields personalizedTranscript', () async {
     final guard = PersonalizationSafetyGuard();
     guard.validateAndAddWordMapping('waiter', 'doctor');
 
     final pipeline = PersonalizationPipeline(guard: guard);
-    final res = pipeline.processTranscript('I need to see the waiter');
+    final res = await pipeline.processTranscript('I need to see the waiter');
 
     expect(res.rawTranscript, 'I need to see the waiter');
     expect(res.personalizedTranscript, 'I need to see the doctor');

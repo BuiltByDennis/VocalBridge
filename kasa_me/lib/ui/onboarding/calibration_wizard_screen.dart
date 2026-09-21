@@ -7,8 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../speech/calibration/calibration_service.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../profile/repositories/profile_repository.dart';
-import '../../storage/database/app_database.dart';
-import '../home/home_communication_notifier.dart' show databaseProvider;
+
 
 final personalizationPipelineProvider = Provider<PersonalizationPipeline>((ref) => PersonalizationPipeline());
 

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../ui/home/home_screen.dart';
-import '../ui/home/home_communication_notifier.dart';
+
 import '../ui/welcome/welcome_screen.dart';
 import '../ui/language/language_selection_screen.dart';
 import '../ui/settings/settings_screen.dart';
@@ -10,7 +10,7 @@ import '../ui/onboarding/calibration_wizard_screen.dart';
 import '../ui/phrasebook/phrasebook_screen.dart';
 import '../ui/history/history_screen.dart';
 import '../ui/diagnostics/asr_diagnostics_screen.dart';
-import '../storage/database/app_database.dart';
+
 
 /// Provides a [GoRouter] accessible from the widget tree.
 /// The router includes a redirect guard: users who haven't completed

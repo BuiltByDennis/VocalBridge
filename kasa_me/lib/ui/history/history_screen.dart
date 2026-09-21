@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart' as drift;
 import '../../speech/diagnostics/repositories/diagnostics_repository.dart';
 import '../../storage/database/app_database.dart';
 import '../home/home_communication_notifier.dart' show databaseProvider;
@@ -177,14 +176,14 @@ class HistoryScreen extends ConsumerWidget {
                 ),
               ),
             if (event.wasCorrected)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
                 child: Row(
                   children: [
-                    const Icon(Icons.edit_note,
+                    Icon(Icons.edit_note,
                         size: 14, color: Colors.green),
-                    const SizedBox(width: 4),
-                    const Text('Corrected',
+                    SizedBox(width: 4),
+                    Text('Corrected',
                         style: TextStyle(
                             fontSize: 11,
                             color: Colors.green,
