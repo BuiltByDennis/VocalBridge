@@ -176,7 +176,19 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       await _ttsEngine.initialize();
       await _pipeline.initialize();
       await _personalizationPipeline.initialize('default_user');
-      
+
+      // Explicitly verify the speech engine actually initialized successfully.
+      // SherpaSpeechEngine catches internal errors and emits them via the stream
+      // rather than rethrowing, so we must check isInitialized directly to avoid
+      // a race condition where we set state to 'ready' while the engine is broken.
+      if (!_speechEngine.isInitialized) {
+        state = state.copyWith(
+          engineState: UiEngineState.error,
+          errorMessage: 'Speech recognition model failed to load. Check logs for details.',
+        );
+        return;
+      }
+
       final loadTime = DateTime.now().difference(startTime);
       state = state.copyWith(
         engineState: UiEngineState.ready,

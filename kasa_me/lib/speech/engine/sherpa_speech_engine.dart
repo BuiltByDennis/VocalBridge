@@ -117,7 +117,8 @@ class SherpaSpeechEngine implements SpeechEngine {
 
   Future<File> _copyAssetToFile(String assetPath, String targetPath) async {
     final file = File(targetPath);
-    if (await file.exists()) {
+    // Only reuse cached file if it actually has content (guards against truncated writes)
+    if (await file.exists() && await file.length() > 0) {
       return file;
     }
     final byteData = await rootBundle.load(assetPath);
