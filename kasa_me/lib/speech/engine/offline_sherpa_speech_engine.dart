@@ -9,6 +9,7 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import '../../core/logging/app_logger.dart';
 import '../asr/models/asr_model_config.dart';
 import 'speech_engine.dart';
+import 'sherpa_speech_engine.dart';
 
 class OfflineSherpaSpeechEngine implements SpeechEngine {
   final AsrModelConfig modelConfig;
@@ -58,16 +59,11 @@ class OfflineSherpaSpeechEngine implements SpeechEngine {
       final tokensFile = await _copyAssetToFile(modelConfig.tokensPath, '${modelDir.path}/tokens.txt');
 
       final nemoCtc = sherpa.OfflineNemoEncDecCtcModelConfig(
-        model: '',
-      );
-
-      final wav2vec2Ctc = sherpa.OfflineWav2Vec2CtcModelConfig(
         model: modelFile.path,
       );
 
       final modelCfg = sherpa.OfflineModelConfig(
         nemoCtc: nemoCtc,
-        wav2vec2Ctc: wav2vec2Ctc,
         tokens: tokensFile.path,
         numThreads: 2,
         debug: false,
