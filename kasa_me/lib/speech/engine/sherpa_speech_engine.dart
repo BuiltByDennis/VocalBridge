@@ -84,9 +84,9 @@ class SherpaSpeechEngine implements SpeechEngine {
         transducer: transducer,
         tokens: tokensFile.path,
         numThreads: 2,
-        debug: true,  // Temporarily enabled to diagnose load failure
+        debug: false,
         provider: 'cpu',
-        modelType: 'zipformer2',
+        modelType: '', // Leave empty to let Sherpa auto-detect (v1 vs v2). Forcing zipformer2 on a v1 model causes a native crash.
       );
 
       final featCfg = sherpa.FeatureConfig(
