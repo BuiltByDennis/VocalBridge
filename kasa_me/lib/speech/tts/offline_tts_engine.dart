@@ -23,7 +23,6 @@ class OfflineTtsEngine implements TtsEngine {
             IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
             IosTextToSpeechAudioCategoryOptions.mixWithOthers,
           ],
-          IosTextToSpeechAudioMode.voicePrompt,
         );
       }
 

@@ -235,12 +235,12 @@ class TranscriptionScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            Icon(Icons.auto_awesome, color: AppTheme.textPrimary, size: 20),
+            const Icon(Icons.auto_awesome, color: AppTheme.textPrimary, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 isListening ? 'Listening...' : 'Tap mic to start...',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppTheme.textSecondary,
                   fontSize: 16,
                 ),

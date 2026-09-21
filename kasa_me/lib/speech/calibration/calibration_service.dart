@@ -148,8 +148,8 @@ class CalibrationService {
       final file = File('${calibDir.path}/${safeName}_$timestamp.wav');
       
       // Write simple WAV header
-      final channels = 1;
-      final sampleRate = 16000;
+      const channels = 1;
+      const sampleRate = 16000;
       final byteRate = sampleRate * channels * 2;
       final dataSize = pcmData.length;
       final fileSize = 36 + dataSize;

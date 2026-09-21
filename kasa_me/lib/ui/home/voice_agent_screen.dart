@@ -82,8 +82,8 @@ class VoiceAgentScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(
                       height: 1.2,
                     ),
-                    children: [
-                      const TextSpan(text: 'What would you\nlike to '),
+                    children: const [
+                      TextSpan(text: 'What would you\nlike to '),
                       TextSpan(
                         text: 'say today?',
                         style: TextStyle(
@@ -176,7 +176,7 @@ class VoiceAgentScreen extends StatelessWidget {
             padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
-                Icon(Icons.auto_awesome, color: AppTheme.textPrimary, size: 20),
+                const Icon(Icons.auto_awesome, color: AppTheme.textPrimary, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: GestureDetector(
@@ -186,7 +186,7 @@ class VoiceAgentScreen extends StatelessWidget {
                         MaterialPageRoute(builder: (_) => const TranscriptionScreen()),
                       );
                     },
-                    child: Text(
+                    child: const Text(
                       'Tap microphone to speak...',
                       style: TextStyle(
                         color: AppTheme.textSecondary,
