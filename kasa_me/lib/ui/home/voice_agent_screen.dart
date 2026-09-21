@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import 'home_communication_notifier.dart';
 import '../components/engine_status_banner.dart';
+import 'package:go_router/go_router.dart';
 import 'transcription_screen.dart';
 
 class VoiceAgentScreen extends ConsumerStatefulWidget {
@@ -157,7 +158,7 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   _buildActionChip('Practice Phrases', Icons.bookmark_border,
-                      () => context.mounted ? Navigator.pushNamed(context, '/phrasebook') : null),
+                      () => context.mounted ? context.push('/phrasebook') : null),
                   const SizedBox(width: 12),
                   _buildActionChip('View Transcript', Icons.chat_bubble_outline,
                       () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TranscriptionScreen()))),
