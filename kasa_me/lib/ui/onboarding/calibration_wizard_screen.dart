@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../speech/calibration/calibration_service.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../profile/repositories/profile_repository.dart';
+import '../../core/permissions/permission_service.dart';
 
 
 final personalizationPipelineProvider = Provider<PersonalizationPipeline>((ref) => PersonalizationPipeline());
@@ -86,23 +87,54 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
     }
   }
 
-  void _startRecording() {
+  void _startRecording() async {
+    final hasPermission = await PermissionService.requestMicrophonePermission();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission is required.')),
+        );
+      }
+      return;
+    }
+
     HapticFeedback.heavyImpact();
     setState(() {
       _isRecording = true;
       _lastRecognized = null;
     });
     final target = CalibrationService.calibrationPhrases[_currentStepIndex];
-    _calibrationService.startRecordingForPhrase(target);
+    try {
+      await _calibrationService.startRecordingForPhrase(target);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
-  void _stopRecording() {
+  void _stopRecording() async {
+    if (!_isRecording) return;
+    
     HapticFeedback.heavyImpact();
     setState(() {
       _isRecording = false;
       _isProcessing = true;
     });
-    _calibrationService.stopRecording();
+    
+    try {
+      await _calibrationService.stopRecording();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error processing audio: $e')));
+      }
+    }
   }
 
   @override
