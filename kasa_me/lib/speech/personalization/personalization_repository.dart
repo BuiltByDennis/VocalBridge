@@ -120,4 +120,26 @@ class PersonalizationRepository {
   String _normalize(String text) {
     return text.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
   }
+
+  /// Returns the total number of learned word corrections for [profileId].
+  Future<int> getWordCorrectionCount(String profileId) async {
+    final words = await (_db.select(_db.wordCorrections)
+          ..where((t) => t.profileId.equals(profileId)))
+        .get();
+    return words.length;
+  }
+
+  /// Returns all word corrections for [profileId] ordered by most recent.
+  Future<List<WordCorrectionEntity>> getWordCorrections(String profileId) async {
+    return await (_db.select(_db.wordCorrections)
+          ..where((t) => t.profileId.equals(profileId))
+          ..orderBy([(t) => OrderingTerm(expression: t.lastCorrectedAt, mode: OrderingMode.desc)]))
+        .get();
+  }
+
+  /// Deletes a single word correction by [id].
+  Future<void> deleteWordCorrection(int id) async {
+    await (_db.delete(_db.wordCorrections)..where((t) => t.id.equals(id))).go();
+  }
 }
+

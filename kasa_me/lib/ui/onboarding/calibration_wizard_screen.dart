@@ -2,15 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../speech/calibration/calibration_service.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../storage/database/app_database.dart';
-import '../home/home_screen.dart';
-
-// Create providers for dependency injection
-final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+import '../home/home_communication_notifier.dart' show databaseProvider;
 
 final personalizationPipelineProvider = Provider<PersonalizationPipeline>((ref) => PersonalizationPipeline());
 
@@ -77,15 +75,15 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
         _lastRecognized = null;
       });
     } else {
-      // Completed all steps
+      // Completed all steps — mark as calibrated and go to home
       final profileRepo = ref.read(profileRepositoryProvider);
-      // Hardcoding default profile id from seed
-      await profileRepo.updateSettings(profileId: 'test-profile-1', isCalibrated: true); // Adjust ID as needed based on how profiles are loaded
-      
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      await profileRepo.updateSettings(
+        profileId: 'default_user',
+        isCalibrated: true,
       );
+
+      if (!mounted) return;
+      context.go('/home');
     }
   }
 

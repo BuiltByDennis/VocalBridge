@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Microphone access for speech recognition -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Internet for google_fonts first-load caching -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Foreground service for continuous audio pipeline -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
     <application
         android:label="kasa_me"
         android:name="${applicationName}"

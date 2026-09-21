@@ -50,6 +50,8 @@ dependencies:
   sqlite3: ^2.9.4
   sherpa_onnx: ^1.13.8
   flutter_tts: any
+  google_fonts: ^6.2.1
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

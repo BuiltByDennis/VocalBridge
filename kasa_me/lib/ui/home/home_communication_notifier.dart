@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../audio/recorder/audio_recorder_service.dart';
+import '../../core/permissions/permission_service.dart';
 import '../../speech/asr/models/asr_model_config.dart';
 import '../../speech/asr/models/asr_model_registry.dart';
 import '../../speech/engine/speech_engine.dart';
@@ -148,6 +149,17 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     _phrasebookSub = _phrasebookRepository.watchQuickPhrases().listen((phrases) {
       state = state.copyWith(quickPhrases: phrases);
     });
+
+    // Request microphone permission before initializing the recorder.
+    // On Android this triggers the system permission dialog.
+    final hasMicPermission = await PermissionService.requestMicrophonePermission();
+    if (!hasMicPermission) {
+      state = state.copyWith(
+        engineState: UiEngineState.error,
+        errorMessage: 'Microphone access is required for speech recognition. Please grant permission in Settings.',
+      );
+      return;
+    }
 
     _speechEngine = SpeechEngineFactory.createEngine(config: state.activeModel);
     _recorderService = AudioRecorderService();

@@ -1,161 +1,299 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../profile/repositories/profile_repository.dart';
-import '../../speech/asr/models/asr_model_registry.dart';
+import '../../speech/personalization/personalization_repository.dart';
+import '../../storage/database/app_database.dart';
+import '../home/home_communication_notifier.dart' show databaseProvider;
+import '../theme/app_theme.dart';
 
 class PersonalizationSettingsScreen extends ConsumerStatefulWidget {
   const PersonalizationSettingsScreen({super.key});
 
   @override
-  ConsumerState<PersonalizationSettingsScreen> createState() => _PersonalizationSettingsScreenState();
+  ConsumerState<PersonalizationSettingsScreen> createState() =>
+      _PersonalizationSettingsScreenState();
 }
 
-class _PersonalizationSettingsScreenState extends ConsumerState<PersonalizationSettingsScreen> {
-  String _selectedLanguage = 'en_GH';
-  bool _isLoading = true;
+class _PersonalizationSettingsScreenState
+    extends ConsumerState<PersonalizationSettingsScreen> {
+  PersonalProfileEntity? _profile;
+  List<WordCorrectionEntity> _corrections = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _load();
   }
 
-  Future<void> _loadSettings() async {
-    final profileRepo = ref.read(profileRepositoryProvider);
-    final profile = await profileRepo.getActiveProfile('default_user');
-    setState(() {
-      _selectedLanguage = profile.preferredLanguage;
-      _isLoading = false;
-    });
-  }
+  Future<void> _load() async {
+    final db = ref.read(databaseProvider);
+    final repo = ProfileRepository(db);
+    final personRepo = PersonalizationRepository(db);
 
-  Future<void> _updateLanguage(String newLanguage) async {
-    setState(() => _isLoading = true);
-    final profileRepo = ref.read(profileRepositoryProvider);
-    await profileRepo.updateSettings(
-      profileId: 'default_user',
-      preferredLanguage: newLanguage,
-    );
-    setState(() {
-      _selectedLanguage = newLanguage;
-      _isLoading = false;
-    });
-    
+    final profile = await repo.getActiveProfile('default_user');
+    final corrections = await personRepo.getWordCorrections('default_user');
+
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Language updated to $newLanguage.')),
-      );
+      setState(() {
+        _profile = profile;
+        _corrections = corrections;
+        _loading = false;
+      });
     }
+  }
+
+  Future<void> _updateSetting({
+    bool? enablePersonalVocabulary,
+    bool? enablePhraseBiasing,
+    bool? enableCorrectionMemory,
+  }) async {
+    final db = ref.read(databaseProvider);
+    final repo = ProfileRepository(db);
+    await repo.updateSettings(
+      profileId: 'default_user',
+      enablePersonalVocabulary: enablePersonalVocabulary,
+      enablePhraseBiasing: enablePhraseBiasing,
+      enableCorrectionMemory: enableCorrectionMemory,
+    );
+    await _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final availableModels = AsrModelRegistry.availableModels;
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Personalization Settings'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Speech Recognition Language', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _selectedLanguage,
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                    items: availableModels.map((model) {
-                      return DropdownMenuItem(
-                        value: model.language,
-                        child: Text(model.displayName),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        _updateLanguage(val);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.download),
-              title: const Text('Export Personal Profile'),
-              subtitle: const Text('Export vocabulary, phrases & learned corrections to JSON'),
-              onTap: () {
-                final profileData = {
-                  'version': '1.0',
-                  'exportedAt': DateTime.now().toIso8601String(),
-                  'vocabulary': ['Kumasi', 'MoMo', 'Dennis'],
-                  'phrases': ['I need water', 'I need help'],
-                };
-                Clipboard.setData(ClipboardData(text: jsonEncode(profileData)));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile copied to clipboard (kasa_me_profile.json)')),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.upload),
-              title: const Text('Import Personal Profile'),
-              subtitle: const Text('Load profile JSON backup file'),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile import validated & loaded successfully.')),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            color: Theme.of(context).colorScheme.errorContainer,
-            child: ListTile(
-              leading: Icon(Icons.delete_forever, color: Theme.of(context).colorScheme.onErrorContainer),
-              title: Text('Reset Personalization Data',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer, fontWeight: FontWeight.bold)),
-              subtitle: Text('Clear all learned word/phrase corrections and personal vocabulary',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer)),
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Reset Personalization?'),
-                    content: const Text('This will delete all learned corrections and vocabulary mappings. Base ASR model will remain intact.'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Personalization data reset.')),
-                          );
-                        },
-                        child: const Text('Reset'),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                            color: Colors.white, shape: BoxShape.circle),
+                        child: const Icon(Icons.arrow_back_ios_new,
+                            size: 16, color: AppTheme.textPrimary),
                       ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text('Personalization',
+                        style: Theme.of(context).textTheme.displayMedium),
+                  ],
+                ),
+              ),
+              if (_loading)
+                const Expanded(
+                    child: Center(child: CircularProgressIndicator()))
+              else
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    children: [
+                      _sectionHeader('Features'),
+                      _switchTile(
+                        title: 'Personal Vocabulary',
+                        subtitle: 'Apply your learned word corrections',
+                        value: _profile?.enablePersonalVocabulary ?? true,
+                        onChanged: (v) =>
+                            _updateSetting(enablePersonalVocabulary: v),
+                      ),
+                      _switchTile(
+                        title: 'Phrase Biasing',
+                        subtitle:
+                            'Prioritize frequently used phrases in recognition',
+                        value: _profile?.enablePhraseBiasing ?? true,
+                        onChanged: (v) =>
+                            _updateSetting(enablePhraseBiasing: v),
+                      ),
+                      _switchTile(
+                        title: 'Correction Memory',
+                        subtitle:
+                            'Remember and auto-apply your word corrections',
+                        value: _profile?.enableCorrectionMemory ?? true,
+                        onChanged: (v) =>
+                            _updateSetting(enableCorrectionMemory: v),
+                      ),
+                      const SizedBox(height: 20),
+                      _sectionHeader('Learned Corrections (${_corrections.length})'),
+                      if (_corrections.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Text(
+                            'No corrections yet. Tap a word in the Voice Chat screen to correct it.',
+                            style: TextStyle(
+                                color: AppTheme.textSecondary, fontSize: 14),
+                          ),
+                        )
+                      else
+                        ..._corrections.map((c) => _correctionTile(c)),
+                      const SizedBox(height: 20),
+                      OutlinedButton.icon(
+                        onPressed: () => _showResetDialog(context),
+                        icon: const Icon(Icons.refresh, color: Colors.redAccent),
+                        label: const Text('Reset All Personalization',
+                            style: TextStyle(color: Colors.redAccent)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.redAccent),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
-                );
-              },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10, top: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.textSecondary,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _switchTile({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: SwitchListTile(
+        title: Text(title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+        subtitle: Text(subtitle),
+        value: value,
+        activeColor: AppTheme.primaryPurple,
+        onChanged: onChanged,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    );
+  }
+
+  Widget _correctionTile(WordCorrectionEntity c) {
+    return Dismissible(
+      key: Key('correction_${c.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.redAccent),
+      ),
+      onDismissed: (_) async {
+        final db = ref.read(databaseProvider);
+        await PersonalizationRepository(db).deleteWordCorrection(c.id);
+        setState(() => _corrections.removeWhere((e) => e.id == c.id));
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
+                  children: [
+                    TextSpan(
+                        text: '"${c.observed}"',
+                        style: const TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: AppTheme.textSecondary)),
+                    const TextSpan(text: ' → '),
+                    TextSpan(
+                        text: '"${c.intended}"',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
             ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryPurple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('×${c.frequency}',
+                  style: const TextStyle(
+                      color: AppTheme.primaryPurple,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showResetDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reset Personalization?'),
+        content: const Text(
+            'This will delete all learned word corrections and pronunciation patterns. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () async {
+              final db = ref.read(databaseProvider);
+              await db.delete(db.wordCorrections).go();
+              await db.delete(db.phraseCorrections).go();
+              Navigator.pop(context);
+              await _load();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Personalization data reset.')),
+                );
+              }
+            },
+            child: const Text('Reset'),
           ),
         ],
       ),

@@ -38,7 +38,8 @@ class SherpaSpeechEngine implements SpeechEngine {
   EngineLifecycleState get lifecycleState => _lifecycleState;
 
   @override
-  bool get isInitialized => _lifecycleState == EngineLifecycleState.ready ||
+  bool get isInitialized =>
+      _lifecycleState == EngineLifecycleState.ready ||
       _lifecycleState == EngineLifecycleState.listening ||
       _lifecycleState == EngineLifecycleState.processing;
 
@@ -66,10 +67,9 @@ class SherpaSpeechEngine implements SpeechEngine {
       final joinerFile = await _copyAssetToFile(modelConfig.joinerPath, '${modelDir.path}/joiner.onnx');
       final tokensFile = await _copyAssetToFile(modelConfig.tokensPath, '${modelDir.path}/tokens.txt');
 
-      final zipformer = sherpa.OnlineZipformer2CtcModelConfig(
-        model: encoderFile.path,
-      );
-
+      // Use ONLY the transducer config. The committed model files (encoder/decoder/joiner)
+      // are a Zipformer transducer. Setting zipformer2Ctc simultaneously is incorrect and
+      // causes a native crash at runtime.
       final transducer = sherpa.OnlineTransducerModelConfig(
         encoder: encoderFile.path,
         decoder: decoderFile.path,
@@ -78,12 +78,11 @@ class SherpaSpeechEngine implements SpeechEngine {
 
       final modelCfg = sherpa.OnlineModelConfig(
         transducer: transducer,
-        zipformer2Ctc: zipformer,
         tokens: tokensFile.path,
         numThreads: 2,
         debug: false,
         provider: 'cpu',
-        modelType: 'zipformer',
+        modelType: 'zipformer2',
       );
 
       final featCfg = sherpa.FeatureConfig(
@@ -201,7 +200,9 @@ class SherpaSpeechEngine implements SpeechEngine {
         text: text,
         confidence: text.isNotEmpty ? 0.90 : null,
         processingTime: elapsedInference,
-        audioDuration: audioDuration.inMilliseconds > 0 ? audioDuration : const Duration(milliseconds: 100),
+        audioDuration: audioDuration.inMilliseconds > 0
+            ? audioDuration
+            : const Duration(milliseconds: 100),
       );
 
       _eventController.add(FinalTranscript(text, result: result));
@@ -217,10 +218,27 @@ class SherpaSpeechEngine implements SpeechEngine {
 
   @override
   Future<void> dispose() async {
+    if (_lifecycleState == EngineLifecycleState.disposed ||
+        _lifecycleState == EngineLifecycleState.disposing) {
+      return;
+    }
     _lifecycleState = EngineLifecycleState.disposing;
+
+    // Free the active stream before nulling the recognizer
+    try {
+      _stream?.free();
+    } catch (_) {}
     _stream = null;
+
+    // Free the recognizer native resources
+    try {
+      _recognizer?.free();
+    } catch (_) {}
     _recognizer = null;
+
     _lifecycleState = EngineLifecycleState.disposed;
-    await _eventController.close();
+    if (!_eventController.isClosed) {
+      await _eventController.close();
+    }
   }
 }

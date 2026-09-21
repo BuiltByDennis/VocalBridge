@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import 'package:kasa_me/storage/database/app_database.dart';
-import 'package:kasa_me/ui/onboarding/calibration_wizard_screen.dart' show databaseProvider;
+import 'package:kasa_me/ui/home/home_communication_notifier.dart' show databaseProvider;
 
 final diagnosticsRepositoryProvider = Provider<DiagnosticsRepository>((ref) {
   return DiagnosticsRepository(ref.watch(databaseProvider));
@@ -37,6 +37,18 @@ class DiagnosticsRepository {
     return await (_db.select(_db.recognitionEvents)
           ..where((t) => t.profileId.equals(profileId))
           ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc)]))
+        .get();
+  }
+
+  /// Returns up to [limit] most recent recognition events for [profileId].
+  Future<List<RecognitionEventEntity>> getRecentEvents({
+    required String profileId,
+    int limit = 100,
+  }) async {
+    return await (_db.select(_db.recognitionEvents)
+          ..where((t) => t.profileId.equals(profileId))
+          ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.desc)])
+          ..limit(limit))
         .get();
   }
 }
