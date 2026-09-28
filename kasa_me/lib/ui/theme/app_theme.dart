@@ -17,6 +17,14 @@ class AppTheme {
   static const Color textPrimary = Color(0xFF1A1A1A);
   static const Color textSecondary = Color(0xFF6B7280);
 
+  // High-contrast palette
+  static const Color hcBackground = Color(0xFF000000);
+  static const Color hcSurface = Color(0xFF1A1A1A);
+  static const Color hcTextPrimary = Color(0xFFFFFFFF);
+  static const Color hcTextSecondary = Color(0xFFFFCC00);
+  static const Color hcAccent = Color(0xFFFFCC00);
+  static const Color hcPurple = Color(0xFFBFB3FF);
+
   static const LinearGradient mainBackgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -24,59 +32,96 @@ class AppTheme {
     colors: [gradTop, gradMid, gradBottom],
   );
 
-  static ThemeData get lightTheme {
+  static const LinearGradient highContrastGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [hcBackground, hcSurface],
+  );
+
+  static LinearGradient backgroundGradient({bool highContrast = false}) =>
+      highContrast ? highContrastGradient : mainBackgroundGradient;
+
+  static ThemeData get lightTheme => _buildTheme(highContrast: false);
+  static ThemeData get highContrastTheme => _buildTheme(highContrast: true);
+
+  static ThemeData themeFor({bool highContrast = false}) =>
+      _buildTheme(highContrast: highContrast);
+
+  static ThemeData _buildTheme({required bool highContrast}) {
+    final fg = highContrast ? hcTextPrimary : textPrimary;
+    final secondary = highContrast ? hcTextSecondary : textSecondary;
+    final primary = highContrast ? hcAccent : primaryPurple;
+    final bg = highContrast ? hcBackground : Colors.transparent;
+
     final baseTextTheme = GoogleFonts.interTextTheme(
-      const TextTheme(
-        displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: textPrimary),
-        displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: textPrimary),
-        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: textPrimary),
-        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary),
-        bodyLarge: TextStyle(fontSize: 16, color: textPrimary),
-        bodyMedium: TextStyle(fontSize: 14, color: textSecondary),
-        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
+      TextTheme(
+        displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: fg),
+        displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: fg),
+        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: fg),
+        titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: fg),
+        bodyLarge: TextStyle(fontSize: 16, color: fg),
+        bodyMedium: TextStyle(fontSize: 14, color: secondary),
+        labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: fg),
       ),
     );
 
     return ThemeData(
-      brightness: Brightness.light,
-      primaryColor: primaryPurple,
-      scaffoldBackgroundColor: Colors.transparent,
-      colorScheme: const ColorScheme.light(
-        primary: primaryPurple,
-        secondary: primaryCyan,
-        surface: surfaceWhite,
-        onSurface: textPrimary,
-      ),
+      brightness: highContrast ? Brightness.dark : Brightness.light,
+      primaryColor: primary,
+      scaffoldBackgroundColor: bg,
+      colorScheme: highContrast
+          ? ColorScheme.dark(
+              primary: hcAccent,
+              secondary: hcAccent,
+              surface: hcSurface,
+              onSurface: hcTextPrimary,
+            )
+          : const ColorScheme.light(
+              primary: primaryPurple,
+              secondary: primaryCyan,
+              surface: surfaceWhite,
+              onSurface: textPrimary,
+            ),
       textTheme: baseTextTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: textPrimary),
+        iconTheme: IconThemeData(color: fg),
         titleTextStyle: GoogleFonts.inter(
           fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: textPrimary,
+          color: fg,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: darkAccent,
-          foregroundColor: Colors.white,
-          textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+          backgroundColor: highContrast ? hcAccent : darkAccent,
+          foregroundColor: highContrast ? hcBackground : Colors.white,
+          minimumSize: const Size(48, 48), // WCAG minimum touch target
+          textStyle: GoogleFonts.inter(
+            fontSize: highContrast ? 18 : 16,
+            fontWeight: FontWeight.w600,
           ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: Colors.white.withOpacity(0.6),
-        labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: textSecondary),
+        backgroundColor: highContrast ? hcSurface : Colors.white.withOpacity(0.6),
+        labelStyle: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: secondary,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        side: const BorderSide(color: Colors.white, width: 1.5),
+        side: BorderSide(color: highContrast ? hcAccent : Colors.white, width: 1.5),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: highContrast ? hcAccent : textSecondary),
+        ),
+        labelStyle: TextStyle(color: secondary),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );

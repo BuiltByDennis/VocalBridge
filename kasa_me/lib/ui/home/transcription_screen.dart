@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../components/engine_status_banner.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import 'home_communication_notifier.dart';
 
 class TranscriptionScreen extends ConsumerStatefulWidget {
@@ -17,10 +19,21 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
   final List<_Message> _messages = [];
   String? _lastRaw;
 
+  // Dwell control state — managed by _DwellMicButton, not here
+  Timer? _dwellTimer;
+
+  @override
+  void dispose() {
+    _dwellTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(homeCommunicationProvider);
     final notifier = ref.read(homeCommunicationProvider.notifier);
+    final accessibility = ref.watch(accessibilitySettingsProvider);
+    final isHC = accessibility.highContrastMode;
 
     // Add new final transcript to message history
     if (state.rawTranscript.isNotEmpty && state.rawTranscript != _lastRaw) {
@@ -44,6 +57,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: isHC ? AppTheme.hcBackground : null,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Container(
@@ -76,7 +90,9 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration: BoxDecoration(
+          gradient: AppTheme.backgroundGradient(highContrast: isHC),
+        ),
         child: SafeArea(
           child: Column(
             children: [
@@ -91,26 +107,37 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
 
               Expanded(
                 child: _messages.isEmpty && state.partialTranscript.isEmpty
-                    ? _buildEmptyState()
+                    ? _buildEmptyState(isHC)
                     : ListView.builder(
                         padding: const EdgeInsets.all(20),
                         itemCount: _messages.length +
                             (state.partialTranscript.isNotEmpty ? 1 : 0),
                         itemBuilder: (context, i) {
                           if (i < _messages.length) {
-                            return _buildMessagePair(context, notifier, _messages[i], i);
+            return _buildMessagePair(context, notifier, _messages[i], i, isHC: isHC);
                           }
                           // Partial transcript preview bubble
-                          return _buildPartialBubble(state.partialTranscript);
+                          return _buildPartialBubble(state.partialTranscript, isHC);
                         },
                       ),
               ),
+
+              // Phrase prediction row
+              if (state.quickPhrases.isNotEmpty && !accessibility.simplifiedUiMode)
+                _PhraseBar(
+                  phrases: state.quickPhrases
+                      .take(4)
+                      .map((p) => p.phrase)
+                      .toList(),
+                  isHighContrast: isHC,
+                  onSelected: (phrase) => notifier.speakText(phrase),
+                ),
 
               // Bottom bar
               Padding(
                 padding: const EdgeInsets.only(
                     left: 24.0, right: 24.0, bottom: 24.0, top: 8.0),
-                child: _buildInputBar(context, state, notifier),
+                child: _buildInputBar(context, state, notifier, accessibility),
               ),
             ],
           ),
@@ -119,40 +146,40 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState([bool isHC = false]) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.mic_none_rounded, size: 64, color: Colors.grey.shade300),
+          Icon(Icons.mic_none_rounded, size: 64, color: isHC ? AppTheme.hcTextSecondary : Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
             'Tap the mic to start speaking',
-            style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
+            style: TextStyle(color: isHC ? AppTheme.hcTextSecondary : Colors.grey.shade400, fontSize: 16),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPartialBubble(String text) {
+  Widget _buildPartialBubble(String text, [bool isHC = false]) {
+    final bubbleColor = isHC ? AppTheme.hcSurface : AppTheme.primaryPurple.withOpacity(0.08);
+    final textStyle = TextStyle(
+      color: isHC ? AppTheme.hcAccent : AppTheme.primaryPurple,
+      fontSize: 15 * MediaQuery.textScalerOf(context).scale(1.0),
+      fontStyle: FontStyle.italic,
+    );
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8, left: 60),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppTheme.primaryPurple.withOpacity(0.08),
+          color: bubbleColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.primaryPurple.withOpacity(0.2)),
+          border: Border.all(color: (isHC ? AppTheme.hcAccent : AppTheme.primaryPurple).withOpacity(0.2)),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(
-              color: AppTheme.primaryPurple,
-              fontSize: 15,
-              fontStyle: FontStyle.italic),
-        ),
+        child: Text(text, style: textStyle),
       ),
     );
   }
@@ -161,8 +188,11 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     BuildContext context,
     HomeCommunicationNotifier notifier,
     _Message msg,
-    int index,
-  ) {
+    int index, {
+    bool isHC = false,
+  }) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final scaledFontSize = textScaler.scale(16.0).clamp(12.8, 28.8);
     final hasDiff = msg.personalized != msg.raw;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -186,23 +216,34 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryPurple.withOpacity(0.15),
-                  border:
-                      Border.all(color: Colors.white.withOpacity(0.5)),
+                  color: isHC
+                      ? AppTheme.hcSurface
+                      : AppTheme.primaryPurple.withOpacity(0.15),
+                  border: Border.all(
+                    color: isHC
+                        ? AppTheme.hcAccent
+                        : Colors.white.withOpacity(0.5),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(msg.personalized,
-                        style: const TextStyle(
-                            color: AppTheme.textPrimary, fontSize: 16)),
+                    Text(
+                      msg.personalized,
+                      style: TextStyle(
+                        color: isHC ? AppTheme.hcTextPrimary : AppTheme.textPrimary,
+                        fontSize: scaledFontSize,
+                      ),
+                    ),
                     if (msg.confidence != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           '${(msg.confidence! * 100).toStringAsFixed(0)}% confidence',
-                          style: const TextStyle(
-                              fontSize: 11, color: AppTheme.textSecondary),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isHC ? AppTheme.hcTextSecondary : AppTheme.textSecondary,
+                          ),
                         ),
                       ),
                   ],
@@ -409,13 +450,17 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     BuildContext context,
     HomeCommunicationState state,
     HomeCommunicationNotifier notifier,
+    AccessibilitySettings accessibility,
   ) {
     final isListening = state.engineState == UiEngineState.listening;
     final isReady = state.engineState == UiEngineState.ready;
+    final isHC = accessibility.highContrastMode;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: isHC ? AppTheme.hcSurface : Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(24),
+        border: isHC ? Border.all(color: AppTheme.hcAccent, width: 1.5) : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -428,46 +473,27 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
         padding: const EdgeInsets.all(12.0),
         child: Row(
           children: [
-            const Icon(Icons.auto_awesome,
-                color: AppTheme.textPrimary, size: 20),
+            Icon(Icons.auto_awesome,
+                color: isHC ? AppTheme.hcAccent : AppTheme.textPrimary, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 isListening ? 'Listening…' : 'Tap mic to speak…',
-                style: const TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 16),
+                style: TextStyle(
+                  color: isHC ? AppTheme.hcTextSecondary : AppTheme.textSecondary,
+                  fontSize: 16,
+                ),
               ),
             ),
-            GestureDetector(
-              onTap: () {
-                if (isListening) {
-                  notifier.stopPushToTalk();
-                } else if (isReady) {
-                  notifier.startPushToTalk();
-                }
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isListening ? Colors.redAccent : AppTheme.darkAccent,
-                  shape: BoxShape.circle,
-                  boxShadow: isListening
-                      ? [
-                          BoxShadow(
-                              color: Colors.redAccent.withOpacity(0.4),
-                              blurRadius: 16,
-                              spreadRadius: 4)
-                        ]
-                      : [],
-                ),
-                child: Icon(
-                  isListening ? Icons.stop_rounded : Icons.mic,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
+            // ── Dwell-control mic button ──
+            _DwellMicButton(
+              isListening: isListening,
+              isReady: isReady,
+              dwellEnabled: accessibility.dwellControlEnabled,
+              dwellDelaySeconds: accessibility.dwellDelaySeconds,
+              isHighContrast: isHC,
+              onStart: notifier.startPushToTalk,
+              onStop: notifier.stopPushToTalk,
             ),
           ],
         ),
@@ -519,6 +545,202 @@ class _HighImpactBanner extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────────────
+/// Dwell-control mic button (3.1 Motor Accessibility)
+/// ─────────────────────────────────────────────────────────────────────
+class _DwellMicButton extends StatefulWidget {
+  final bool isListening;
+  final bool isReady;
+  final bool dwellEnabled;
+  final double dwellDelaySeconds;
+  final bool isHighContrast;
+  final VoidCallback onStart;
+  final VoidCallback onStop;
+
+  const _DwellMicButton({
+    required this.isListening,
+    required this.isReady,
+    required this.dwellEnabled,
+    required this.dwellDelaySeconds,
+    required this.isHighContrast,
+    required this.onStart,
+    required this.onStop,
+  });
+
+  @override
+  State<_DwellMicButton> createState() => _DwellMicButtonState();
+}
+
+class _DwellMicButtonState extends State<_DwellMicButton>
+    with SingleTickerProviderStateMixin {
+  Timer? _dwellTimer;
+  double _dwellProgress = 0.0;
+  static const int _tickMs = 50;
+
+  void _startDwell() {
+    if (!widget.dwellEnabled || !widget.isReady) return;
+    _dwellProgress = 0.0;
+    final totalTicks = (widget.dwellDelaySeconds * 1000 / _tickMs).ceil();
+    int ticks = 0;
+
+    _dwellTimer = Timer.periodic(const Duration(milliseconds: _tickMs), (t) {
+      ticks++;
+      setState(() => _dwellProgress = ticks / totalTicks);
+      if (ticks >= totalTicks) {
+        t.cancel();
+        setState(() => _dwellProgress = 0.0);
+        widget.onStart();
+      }
+    });
+  }
+
+  void _cancelDwell() {
+    _dwellTimer?.cancel();
+    setState(() => _dwellProgress = 0.0);
+  }
+
+  @override
+  void dispose() {
+    _dwellTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor =
+        widget.isHighContrast ? AppTheme.hcAccent : Colors.redAccent;
+    final idleColor =
+        widget.isHighContrast ? AppTheme.hcAccent : AppTheme.darkAccent;
+    final buttonColor = widget.isListening ? activeColor : idleColor;
+
+    // Minimum 56×56dp touch target (exceeds WCAG 48dp minimum)
+    return Listener(
+      onPointerDown: (_) {
+        if (widget.dwellEnabled) {
+          _startDwell();
+        } else {
+          if (widget.isListening) {
+            widget.onStop();
+          } else if (widget.isReady) {
+            widget.onStart();
+          }
+        }
+      },
+      onPointerUp: (_) {
+        if (widget.dwellEnabled) {
+          _cancelDwell();
+        } else if (widget.isListening) {
+          widget.onStop();
+        }
+      },
+      child: SizedBox(
+        width: 56,
+        height: 56,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Dwell progress ring
+            if (widget.dwellEnabled && _dwellProgress > 0)
+              SizedBox(
+                width: 56,
+                height: 56,
+                child: CircularProgressIndicator(
+                  value: _dwellProgress,
+                  strokeWidth: 3,
+                  color: idleColor,
+                  backgroundColor: idleColor.withOpacity(0.2),
+                ),
+              ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: buttonColor,
+                shape: BoxShape.circle,
+                boxShadow: widget.isListening
+                    ? [
+                        BoxShadow(
+                          color: activeColor.withOpacity(0.4),
+                          blurRadius: 16,
+                          spreadRadius: 4,
+                        ),
+                      ]
+                    : [],
+              ),
+              child: Icon(
+                widget.isListening ? Icons.stop_rounded : Icons.mic,
+                color: widget.isHighContrast ? AppTheme.hcBackground : Colors.white,
+                size: 24,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────────────
+/// Phrase prediction bar (3.3 Cognitive Accessibility)
+/// Shows the top quick-phrases as tappable chips above the mic bar.
+/// ─────────────────────────────────────────────────────────────────────
+class _PhraseBar extends StatelessWidget {
+  final List<String> phrases;
+  final bool isHighContrast;
+  final ValueChanged<String> onSelected;
+
+  const _PhraseBar({
+    required this.phrases,
+    required this.isHighContrast,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (phrases.isEmpty) return const SizedBox.shrink();
+
+    final chipColor =
+        isHighContrast ? AppTheme.hcSurface : Colors.white.withOpacity(0.85);
+    final textColor =
+        isHighContrast ? AppTheme.hcAccent : AppTheme.primaryPurple;
+    final borderColor =
+        isHighContrast ? AppTheme.hcAccent : AppTheme.primaryPurple.withOpacity(0.3);
+
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        itemCount: phrases.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          return GestureDetector(
+            onTap: () => onSelected(phrases[i]),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: chipColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: borderColor),
+              ),
+              child: Text(
+                phrases[i],
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

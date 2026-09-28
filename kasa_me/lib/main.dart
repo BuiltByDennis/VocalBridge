@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'app/router.dart';
+import 'core/accessibility/accessibility_settings.dart';
 import 'ui/theme/app_theme.dart';
 
 void main() {
@@ -17,14 +18,17 @@ void main() {
   runApp(const ProviderScope(child: KasaMeApp()));
 }
 
-class KasaMeApp extends StatelessWidget {
+class KasaMeApp extends ConsumerWidget {
   const KasaMeApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accessibility = ref.watch(accessibilitySettingsProvider);
+    final theme = AppTheme.themeFor(highContrast: accessibility.highContrastMode);
+
     return MaterialApp.router(
       title: 'Kasa Me',
-      theme: AppTheme.lightTheme,
+      theme: theme,
       themeMode: ThemeMode.light,
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,

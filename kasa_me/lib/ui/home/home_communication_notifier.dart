@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../audio/recorder/audio_recorder_service.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import '../../core/permissions/permission_service.dart';
 import '../../speech/asr/models/asr_model_config.dart';
 import '../../speech/asr/models/asr_model_registry.dart';
@@ -112,6 +113,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   final ProfileRepository _profileRepository;
   final DiagnosticsRepository _diagnosticsRepository;
   final PersonalizationRepository _personalizationRepository;
+  AccessibilitySettings _accessibilitySettings;
   
   // TTS Engine
   late final TtsEngine _ttsEngine;
@@ -124,14 +126,27 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     required ProfileRepository profileRepository,
     required DiagnosticsRepository diagnosticsRepository,
     required PersonalizationRepository personalizationRepository,
+    AccessibilitySettings? accessibilitySettings,
   })  : _phrasebookRepository = phrasebookRepository,
         _profileRepository = profileRepository,
         _diagnosticsRepository = diagnosticsRepository,
         _personalizationRepository = personalizationRepository,
+        _accessibilitySettings = accessibilitySettings ?? const AccessibilitySettings(),
         super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
     _personalizationPipeline = PersonalizationPipeline(repository: _personalizationRepository);
     _ttsEngine = OfflineTtsEngine();
     _initialize();
+  }
+
+  /// Called by the provider when accessibility settings change reactively.
+  void updateAccessibilitySettings(AccessibilitySettings settings) {
+    _accessibilitySettings = settings;
+    // Apply mic gain immediately — _recorderService is late so guard with try/catch
+    try {
+      _recorderService.micGainMultiplier = settings.micGainMultiplier;
+    } catch (_) {
+      // Recorder not yet initialized; gain will be applied in _initialize()
+    }
   }
 
   Future<void> _initialize() async {
@@ -162,7 +177,8 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     }
 
     _speechEngine = SpeechEngineFactory.createEngine(config: state.activeModel);
-    _recorderService = AudioRecorderService();
+    _recorderService = AudioRecorderService()
+      ..micGainMultiplier = _accessibilitySettings.micGainMultiplier;
     await _recorderService.initialize();
 
     _pipeline = StreamingAudioPipeline(
@@ -230,12 +246,13 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         break;
       case FinalTranscript(text: final text, result: final res):
         final pRes = await _personalizationPipeline.processTranscript(text, confidence: res?.confidence);
+        final finalText = pRes.personalizedTranscript.isNotEmpty ? pRes.personalizedTranscript : text;
         
         // Log telemetry
         await _diagnosticsRepository.logRecognitionEvent(
           profileId: 'default_user',
           rawTranscript: text,
-          personalizedTranscript: pRes.personalizedTranscript.isNotEmpty ? pRes.personalizedTranscript : text,
+          personalizedTranscript: finalText,
           confidence: res?.confidence,
           wasCorrected: false,
         );
@@ -243,7 +260,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         state = state.copyWith(
           engineState: UiEngineState.ready,
           rawTranscript: text,
-          personalizedTranscript: pRes.personalizedTranscript.isNotEmpty ? pRes.personalizedTranscript : state.personalizedTranscript,
+          personalizedTranscript: finalText,
           partialTranscript: '',
           confidence: res?.confidence,
           isHighImpact: pRes.isHighImpact,
@@ -251,6 +268,13 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
           lastInferenceTime: res?.processingTime,
           lastAudioDuration: res?.audioDuration,
         );
+
+        // 3.1 Auto-Speak: if enabled and not a high-impact message, speak immediately
+        if (_accessibilitySettings.autoSpeakOnTranscription &&
+            finalText.isNotEmpty &&
+            !pRes.isHighImpact) {
+          await speakText(finalText);
+        }
         break;
       case SpeechEngineError(message: final msg):
         HapticFeedback.vibrate();
@@ -391,10 +415,16 @@ final personalizationRepositoryProvider = Provider<PersonalizationRepository>((r
 
 final homeCommunicationProvider =
     StateNotifierProvider<HomeCommunicationNotifier, HomeCommunicationState>((ref) {
-  return HomeCommunicationNotifier(
+  final notifier = HomeCommunicationNotifier(
     phrasebookRepository: ref.watch(phrasebookRepositoryProvider),
     profileRepository: ref.watch(profileRepositoryProvider),
     diagnosticsRepository: ref.watch(diagnosticsRepositoryProvider),
     personalizationRepository: ref.watch(personalizationRepositoryProvider),
+    accessibilitySettings: ref.read(accessibilitySettingsProvider),
   );
+  // Keep notifier in sync when accessibility settings change
+  ref.listen(accessibilitySettingsProvider, (_, next) {
+    notifier.updateAccessibilitySettings(next);
+  });
+  return notifier;
 });

@@ -5,6 +5,7 @@ import '../ui/home/home_screen.dart';
 import '../ui/welcome/welcome_screen.dart';
 import '../ui/language/language_selection_screen.dart';
 import '../ui/settings/settings_screen.dart';
+import '../ui/settings/accessibility_settings_screen.dart';
 import '../ui/settings/personalization_settings_screen.dart';
 import '../ui/onboarding/calibration_wizard_screen.dart';
 import '../ui/phrasebook/phrasebook_screen.dart';
@@ -55,6 +56,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'personalization',
           builder: (context, state) => const PersonalizationSettingsScreen(),
+        ),
+        GoRoute(
+          path: 'accessibility',
+          builder: (context, state) => const AccessibilitySettingsScreen(),
         ),
       ],
     ),

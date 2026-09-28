@@ -62,6 +62,16 @@ class SettingsScreen extends StatelessWidget {
                       onTap: () => context.push('/calibration'),
                     ),
                     const SizedBox(height: 16),
+                    _sectionHeader('Accessibility'),
+                    _tile(
+                      context,
+                      icon: Icons.accessibility_new_rounded,
+                      title: 'Accessibility',
+                      subtitle: 'Dwell control, high-contrast, mic gain & noise filter',
+                      onTap: () => context.push('/settings/accessibility'),
+                      iconColor: Colors.teal,
+                    ),
+                    const SizedBox(height: 16),
                     _sectionHeader('Data & Privacy'),
                     _tile(
                       context,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import 'home_stats_notifier.dart';
 import 'voice_agent_screen.dart';
 
@@ -11,18 +12,23 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(homeStatsProvider);
+    final accessibility = ref.watch(accessibilitySettingsProvider);
+    final isHC = accessibility.highContrastMode;
+    final isSimple = accessibility.simplifiedUiMode;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration: BoxDecoration(
+          gradient: AppTheme.backgroundGradient(highContrast: isHC),
+        ),
         child: SafeArea(
           child: Stack(
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(context),
+                  _buildHeader(context, isSimple),
                   const SizedBox(height: 20),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -67,7 +73,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(flex: 2),
-                  _buildOverviewCard(context, stats),
+                  if (!isSimple) _buildOverviewCard(context, stats),
                   const SizedBox(height: 100),
                 ],
               ),
@@ -76,7 +82,7 @@ class HomeScreen extends ConsumerWidget {
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 24.0, left: 24.0, right: 24.0),
-                  child: _buildBottomNav(context),
+                  child: _buildBottomNav(context, isSimple),
                 ),
               ),
             ],
@@ -86,31 +92,33 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, [bool isSimple = false]) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          GestureDetector(
-            onTap: () => context.push('/settings'),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: const Icon(Icons.menu, color: AppTheme.textPrimary),
-            ),
-          ),
-          Row(
-            children: [
-              Container(
+          if (!isSimple)
+            GestureDetector(
+              onTap: () => context.push('/settings'),
+              child: Container(
                 width: 48,
                 height: 48,
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const Icon(Icons.notifications_none, color: AppTheme.textPrimary),
+                child: const Icon(Icons.menu, color: AppTheme.textPrimary),
               ),
-              const SizedBox(width: 12),
-              // Local user icon instead of network URL
+            ),
+          if (isSimple) const Spacer(),
+          Row(
+            children: [
+              if (!isSimple)
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: const Icon(Icons.notifications_none, color: AppTheme.textPrimary),
+                ),
+              if (!isSimple) const SizedBox(width: 12),
               Container(
                 width: 48,
                 height: 48,
@@ -263,7 +271,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBottomNav(BuildContext context) {
+  Widget _buildBottomNav(BuildContext context, [bool isSimple = false]) {
     return Container(
       height: 70,
       decoration: BoxDecoration(
@@ -288,12 +296,12 @@ class HomeScreen extends ConsumerWidget {
                 color: AppTheme.darkAccent, shape: BoxShape.circle),
             child: const Icon(Icons.home_filled, color: Colors.white),
           ),
-          // Phrasebook
+          // Phrasebook — always visible
           GestureDetector(
             onTap: () => context.push('/phrasebook'),
             child: const Icon(Icons.favorite_border, color: AppTheme.textSecondary),
           ),
-          // Voice Agent
+          // Voice Agent — always visible
           GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -307,16 +315,18 @@ class HomeScreen extends ConsumerWidget {
               child: const Icon(Icons.graphic_eq, color: Colors.white),
             ),
           ),
-          // History
-          GestureDetector(
-            onTap: () => context.push('/history'),
-            child: const Icon(Icons.history, color: AppTheme.textSecondary),
-          ),
-          // Settings
-          GestureDetector(
-            onTap: () => context.push('/settings'),
-            child: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
-          ),
+          // History — hidden in simplified mode
+          if (!isSimple)
+            GestureDetector(
+              onTap: () => context.push('/history'),
+              child: const Icon(Icons.history, color: AppTheme.textSecondary),
+            ),
+          // Settings — hidden in simplified mode
+          if (!isSimple)
+            GestureDetector(
+              onTap: () => context.push('/settings'),
+              child: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
+            ),
         ],
       ),
     );
