@@ -42,15 +42,21 @@ interfaces, so no architecture changes are needed once credentials arrive:
 
 ## 3. Demo script (screening)
 
-Narrate one end-to-end communication task — a Twi speaker with impaired
-speech communicating a need to an English-speaking caregiver:
+Narrate one end-to-end communication task — a non-verbal Twi-speaking patient
+in a hospital ward communicating a need to an English-speaking nurse:
 
 1. Open the app, point at the banner: "Ready · UG HCI Lab API".
-2. Hold the mic button, speak a Twi phrase (e.g. a need/medication phrase).
-3. Transcript appears in Twi → tap the English gloss chip / speak-back.
-4. TTS speaks it aloud so the caregiver understands. **Task complete.**
-5. Show one accessibility feature live (dwell control or high-contrast toggle).
-6. Show the high-impact guard: say a money phrase → confirm dialog appears.
+2. Press the mic button, speak a Twi care phrase (e.g. "Me pɛ nsuo").
+3. The transcript appears, and right below it the **translation card**: Twi on
+   the left, English ("I would like some water") on the right — the completed
+   task, visible and undeniable.
+4. Tap the speaker on the English side: the nurse hears it read aloud in
+   English. **Task complete.**
+5. Flip it: switch the app language to English, speak "The doctor is coming"
+   → the card shows the Twi gloss ("Dokota no reba") → tap its speaker to
+   read it aloud in Twi to the patient.
+6. Show one accessibility feature live (dwell control or high-contrast toggle).
+7. Show the high-impact guard: say a money phrase → confirm dialog appears.
 
 ## 4. Deliberate product decisions (for judges' questions)
 

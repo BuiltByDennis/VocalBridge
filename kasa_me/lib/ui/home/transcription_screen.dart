@@ -48,6 +48,10 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
                   : state.rawTranscript,
               confidence: state.confidence,
               timestamp: DateTime.now(),
+              translation: state.translation,
+              translationSourceLabel: state.translationSourceLabel,
+              translationTargetLabel: state.translationTargetLabel,
+              translationTargetCode: state.translationTargetCode,
             ));
           });
         }
@@ -253,6 +257,11 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
             ),
           ),
         ),
+        // ── Bidirectional translation card (Twi ↔ English) ──
+        // The completed task, made visible: what was said, side by side with
+        // what it means for the other person. Each side speaks aloud in its
+        // own language.
+        _buildTranslationCard(context, notifier, msg, isHC: isHC),
         // Show corrections if personalized differs from raw
         if (hasDiff)
           Padding(
@@ -312,6 +321,157 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
           ),
         ),
         const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  /// Side-by-side translation card: the original utterance next to its
+  /// translation, each with its own speak-aloud button. This is the
+  /// end-to-end task made visible — a Twi speaker's words, readable and
+  /// hearable in English by the nurse, and vice versa.
+  Widget _buildTranslationCard(
+    BuildContext context,
+    HomeCommunicationNotifier notifier,
+    _Message msg, {
+    bool isHC = false,
+  }) {
+    // Only for language pairs the app can translate (currently Twi ↔ English).
+    if (msg.translationTargetLabel.isEmpty) return const SizedBox.shrink();
+
+    final textScaler = MediaQuery.textScalerOf(context);
+    final scaledFontSize = textScaler.scale(15.0).clamp(12.0, 26.0);
+    final hasTranslation =
+        msg.translation != null && msg.translation!.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isHC ? AppTheme.hcSurface : Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isHC
+              ? AppTheme.hcAccent
+              : AppTheme.primaryPurple.withOpacity(0.35),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.translate_rounded,
+                  size: 16, color: AppTheme.primaryPurple),
+              const SizedBox(width: 6),
+              Text(
+                'Translation · ${msg.translationSourceLabel} → ${msg.translationTargetLabel}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isHC
+                      ? AppTheme.hcTextPrimary
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (hasTranslation)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _translationPanel(
+                    context,
+                    label: msg.translationSourceLabel.toUpperCase(),
+                    text: msg.personalized,
+                    fontSize: scaledFontSize,
+                    isHC: isHC,
+                    onSpeak: () =>
+                        notifier.speakOriginalText(msg.personalized),
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  color: AppTheme.textSecondary.withOpacity(0.25),
+                ),
+                Expanded(
+                  child: _translationPanel(
+                    context,
+                    label: msg.translationTargetLabel.toUpperCase(),
+                    text: msg.translation!,
+                    fontSize: scaledFontSize,
+                    isHC: isHC,
+                    onSpeak: () =>
+                        notifier.speakTranslationText(msg.translation!),
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              'No ${msg.translationTargetLabel} gloss for this phrase yet — the care phrasebook is growing.',
+              style: const TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _translationPanel(
+    BuildContext context, {
+    required String label,
+    required String text,
+    required double fontSize,
+    required bool isHC,
+    required VoidCallback onSpeak,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryPurple.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: AppTheme.primaryPurple,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: fontSize,
+            color: isHC ? AppTheme.hcTextPrimary : AppTheme.textPrimary,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: IconButton(
+            onPressed: onSpeak,
+            icon: const Icon(Icons.volume_up_rounded),
+            color: AppTheme.primaryPurple,
+            tooltip: 'Read aloud in $label',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          ),
+        ),
       ],
     );
   }
@@ -393,6 +553,10 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
                       personalized: newPersonalized,
                       confidence: msg.confidence,
                       timestamp: msg.timestamp,
+                      translation: notifier.translateFor(newPersonalized),
+                      translationSourceLabel: notifier.translationSourceLabel,
+                      translationTargetLabel: notifier.translationTargetLabel,
+                      translationTargetCode: notifier.translationTargetCode,
                     );
                   });
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -508,11 +672,20 @@ class _Message {
   final String personalized;
   final double? confidence;
   final DateTime timestamp;
+  // Bidirectional translation display (Twi ↔ English).
+  final String? translation;
+  final String translationSourceLabel;
+  final String translationTargetLabel;
+  final String translationTargetCode;
   const _Message({
     required this.raw,
     required this.personalized,
     this.confidence,
     required this.timestamp,
+    this.translation,
+    this.translationSourceLabel = '',
+    this.translationTargetLabel = '',
+    this.translationTargetCode = '',
   });
 }
 

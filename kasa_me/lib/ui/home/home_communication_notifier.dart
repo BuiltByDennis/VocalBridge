@@ -13,6 +13,9 @@ import '../../speech/personalization/personalization_pipeline.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
 import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/tts_engine_factory.dart';
+import '../../speech/tts/offline_tts_engine.dart';
+import '../../speech/translation/translation_service.dart';
+import '../../speech/translation/dictionary_translation_service.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
 import '../../profile/repositories/profile_repository.dart';
@@ -47,6 +50,11 @@ class HomeCommunicationState {
   final Duration? modelLoadDuration;
   final List<PhrasebookEntry> quickPhrases;
   final String providerLabel;
+  // Bidirectional translation display (e.g. Twi ↔ English for the care scenario).
+  final String? translation;
+  final String translationSourceLabel;
+  final String translationTargetLabel;
+  final String translationTargetCode; // 'en' or 'tw' — which voice reads it aloud
 
   const HomeCommunicationState({
     this.engineState = UiEngineState.notLoaded,
@@ -66,6 +74,10 @@ class HomeCommunicationState {
     this.modelLoadDuration,
     this.quickPhrases = const [],
     this.providerLabel = 'Offline',
+    this.translation,
+    this.translationSourceLabel = '',
+    this.translationTargetLabel = '',
+    this.translationTargetCode = '',
   });
 
   HomeCommunicationState copyWith({
@@ -86,6 +98,10 @@ class HomeCommunicationState {
     Duration? modelLoadDuration,
     List<PhrasebookEntry>? quickPhrases,
     String? providerLabel,
+    String? translation,
+    String? translationSourceLabel,
+    String? translationTargetLabel,
+    String? translationTargetCode,
   }) {
     return HomeCommunicationState(
       engineState: engineState ?? this.engineState,
@@ -105,6 +121,38 @@ class HomeCommunicationState {
       modelLoadDuration: modelLoadDuration ?? this.modelLoadDuration,
       quickPhrases: quickPhrases ?? this.quickPhrases,
       providerLabel: providerLabel ?? this.providerLabel,
+      translation: translation ?? this.translation,
+      translationSourceLabel: translationSourceLabel ?? this.translationSourceLabel,
+      translationTargetLabel: translationTargetLabel ?? this.translationTargetLabel,
+      translationTargetCode: translationTargetCode ?? this.translationTargetCode,
+    );
+  }
+
+  /// Clears the translation without touching the other fields (copyWith
+  /// cannot set a nullable field back to null).
+  HomeCommunicationState clearTranslation() {
+    return HomeCommunicationState(
+      engineState: engineState,
+      isSpeaking: isSpeaking,
+      isHighImpact: isHighImpact,
+      hasConfirmedHighImpact: hasConfirmedHighImpact,
+      selectedLanguage: selectedLanguage,
+      activeModel: activeModel,
+      partialTranscript: partialTranscript,
+      rawTranscript: rawTranscript,
+      personalizedTranscript: personalizedTranscript,
+      confidence: confidence,
+      lastInferenceTime: lastInferenceTime,
+      lastAudioDuration: lastAudioDuration,
+      errorMessage: errorMessage,
+      modelLoadedAt: modelLoadedAt,
+      modelLoadDuration: modelLoadDuration,
+      quickPhrases: quickPhrases,
+      providerLabel: providerLabel,
+      translation: null,
+      translationSourceLabel: '',
+      translationTargetLabel: '',
+      translationTargetCode: '',
     );
   }
 }
@@ -122,6 +170,12 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   
   // TTS Engine
   late TtsEngine _ttsEngine;
+  // Dedicated English voice for reading translations aloud to the caregiver.
+  // The main engine speaks the user's own language; this one always speaks
+  // English (offline system voice is reliable for en-US).
+  late final TtsEngine _englishTts = OfflineTtsEngine();
+  // Curated Twi ↔ English care glossary (offline, honest about coverage).
+  final TranslationService _translationService = DictionaryTranslationService();
 
   StreamSubscription<SpeechEngineEvent>? _eventSub;
   StreamSubscription<List<PhrasebookEntry>>? _phrasebookSub;
@@ -219,6 +273,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
     try {
       await _ttsEngine.initialize();
+      await _englishTts.initialize();
       await _pipeline.initialize();
       await _personalizationPipeline.initialize('default_user');
 
@@ -286,7 +341,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
           wasCorrected: false,
         );
 
-        state = state.copyWith(
+        state = state.clearTranslation().copyWith(
           engineState: UiEngineState.ready,
           rawTranscript: text,
           personalizedTranscript: finalText,
@@ -296,13 +351,24 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
           hasConfirmedHighImpact: false,
           lastInferenceTime: res?.processingTime,
           lastAudioDuration: res?.audioDuration,
+          translation: _translateText(finalText),
+          translationSourceLabel: _translationSourceLabel,
+          translationTargetLabel: _translationTargetLabel,
+          translationTargetCode: _translationTargetCode,
         );
 
-        // 3.1 Auto-Speak: if enabled and not a high-impact message, speak immediately
+        // 3.1 Auto-Speak: if enabled and not a high-impact message, speak immediately.
+        // When a translation exists, speak the CAREGIVER-facing text (the completed
+        // task: the nurse hears English) instead of the original utterance.
         if (_accessibilitySettings.autoSpeakOnTranscription &&
             finalText.isNotEmpty &&
             !pRes.isHighImpact) {
-          await speakText(finalText);
+          final t = state.translation;
+          if (t != null && t.isNotEmpty) {
+            await speakTranslationText(t);
+          } else {
+            await speakText(finalText);
+          }
         }
         break;
       case SpeechEngineError(message: final msg):
@@ -343,10 +409,14 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
   void selectQuickPhrase(PhrasebookEntry entry) {
     HapticFeedback.mediumImpact();
-    state = state.copyWith(
+    state = state.clearTranslation().copyWith(
       rawTranscript: entry.phrase,
       personalizedTranscript: entry.phrase,
       confidence: 1.0,
+      translation: _translateText(entry.phrase),
+      translationSourceLabel: _translationSourceLabel,
+      translationTargetLabel: _translationTargetLabel,
+      translationTargetCode: _translationTargetCode,
     );
     
     // Trigger usage count increment to allow dynamic reordering
@@ -373,14 +443,22 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
     // If we're correcting the most recent utterance, update global state
     if (rawTranscriptContext == state.rawTranscript) {
-      state = state.copyWith(personalizedTranscript: pRes.personalizedTranscript);
+      final newPersonalized = pRes.personalizedTranscript;
+      state = state.clearTranslation().copyWith(
+        personalizedTranscript: newPersonalized,
+        translation: _translateText(newPersonalized),
+        translationSourceLabel: _translationSourceLabel,
+        translationTargetLabel: _translationTargetLabel,
+        translationTargetCode: _translationTargetCode,
+      );
     }
     
     return pRes.personalizedTranscript;
   }
 
   void clearTranscript() {
-    state = state.copyWith(rawTranscript: '', personalizedTranscript: '', partialTranscript: '');
+    state = state.clearTranslation().copyWith(
+        rawTranscript: '', personalizedTranscript: '', partialTranscript: '');
   }
 
   void confirmHighImpact() {
@@ -414,7 +492,70 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
   Future<void> stopSpeaking() async {
     await _ttsEngine.stop();
+    await _englishTts.stop();
     state = state.copyWith(isSpeaking: false);
+  }
+
+  // ── Bidirectional translation (Twi ↔ English, care scenario) ──
+
+  /// (from, to) app language codes for the current UI language, or null
+  /// when the pair is not supported.
+  (String, String)? _translationPair() {
+    if (state.selectedLanguage == 'twi') return ('twi', 'en_GH');
+    if (state.selectedLanguage == 'en_GH') return ('en_GH', 'twi');
+    return null;
+  }
+
+  String get _translationSourceLabel =>
+      state.selectedLanguage == 'twi' ? 'Twi' : 'English';
+
+  String get _translationTargetLabel =>
+      state.selectedLanguage == 'twi' ? 'English' : 'Twi';
+
+  /// Lab language code of the translation target — picks the voice that
+  /// reads the translation aloud ('en' → English voice, 'tw' → Twi voice).
+  String get _translationTargetCode =>
+      state.selectedLanguage == 'twi' ? 'en' : 'tw';
+
+  /// Translates [text] for the current language pair. Returns null when
+  /// unsupported or when the glossary has no entry (never a guess).
+  String? _translateText(String text) {
+    final pair = _translationPair();
+    if (pair == null) return null;
+    return _translationService.translate(text, from: pair.$1, to: pair.$2);
+  }
+
+  /// Public helper so the UI can re-translate corrected text.
+  String? translateFor(String text) => _translateText(text);
+  String get translationSourceLabel => _translationSourceLabel;
+  String get translationTargetLabel => _translationTargetLabel;
+  String get translationTargetCode => _translationTargetCode;
+
+  /// Speaks [text] in the user's own (source) language.
+  Future<void> speakOriginalText(String text) async {
+    if (state.isHighImpact && !state.hasConfirmedHighImpact) return;
+    await speakText(text);
+  }
+
+  /// Speaks [text] in the translation's (target) language — the voice the
+  /// other person hears. English always uses the dedicated offline voice;
+  /// Twi uses the main engine (Lab TTS when the API is configured).
+  Future<void> speakTranslationText(String text) async {
+    if (text.trim().isEmpty) return;
+    if (state.isHighImpact && !state.hasConfirmedHighImpact) return;
+
+    state = state.copyWith(isSpeaking: true);
+    try {
+      if (state.translationTargetCode == 'en') {
+        await _englishTts.speak(text);
+      } else {
+        await _ttsEngine.speak(text);
+      }
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to speak translation: $e');
+    } finally {
+      state = state.copyWith(isSpeaking: false);
+    }
   }
 
   @override
@@ -423,6 +564,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     _phrasebookSub?.cancel();
     _pipeline.dispose();
     _ttsEngine.dispose();
+    _englishTts.dispose();
     super.dispose();
   }
 }
