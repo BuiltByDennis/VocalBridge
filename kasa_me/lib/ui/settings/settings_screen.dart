@@ -49,6 +49,13 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     _tile(
                       context,
+                      icon: Icons.cloud_outlined,
+                      title: 'Speech Provider',
+                      subtitle: 'Offline engine or UG HCI Lab API (needed for Twi)',
+                      onTap: () => context.push('/settings/speech-provider'),
+                    ),
+                    _tile(
+                      context,
                       icon: Icons.tune,
                       title: 'Personalization',
                       subtitle: 'Vocabulary, corrections & biasing settings',
