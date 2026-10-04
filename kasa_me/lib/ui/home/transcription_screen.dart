@@ -99,6 +99,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
               EngineStatusBanner(
                 engineState: state.engineState,
                 errorMessage: state.errorMessage,
+                providerLabel: state.providerLabel,
               ),
 
               // High-impact safety banner

@@ -12,7 +12,8 @@ import '../../speech/engine/speech_engine_factory.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
 import '../../speech/tts/tts_engine.dart';
-import '../../speech/tts/offline_tts_engine.dart';
+import '../../speech/tts/tts_engine_factory.dart';
+import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../speech/diagnostics/repositories/diagnostics_repository.dart';
@@ -45,6 +46,7 @@ class HomeCommunicationState {
   final DateTime? modelLoadedAt;
   final Duration? modelLoadDuration;
   final List<PhrasebookEntry> quickPhrases;
+  final String providerLabel;
 
   const HomeCommunicationState({
     this.engineState = UiEngineState.notLoaded,
@@ -63,6 +65,7 @@ class HomeCommunicationState {
     this.modelLoadedAt,
     this.modelLoadDuration,
     this.quickPhrases = const [],
+    this.providerLabel = 'Offline',
   });
 
   HomeCommunicationState copyWith({
@@ -82,6 +85,7 @@ class HomeCommunicationState {
     DateTime? modelLoadedAt,
     Duration? modelLoadDuration,
     List<PhrasebookEntry>? quickPhrases,
+    String? providerLabel,
   }) {
     return HomeCommunicationState(
       engineState: engineState ?? this.engineState,
@@ -100,6 +104,7 @@ class HomeCommunicationState {
       modelLoadedAt: modelLoadedAt ?? this.modelLoadedAt,
       modelLoadDuration: modelLoadDuration ?? this.modelLoadDuration,
       quickPhrases: quickPhrases ?? this.quickPhrases,
+      providerLabel: providerLabel ?? this.providerLabel,
     );
   }
 }
@@ -116,7 +121,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   AccessibilitySettings _accessibilitySettings;
   
   // TTS Engine
-  late final TtsEngine _ttsEngine;
+  late TtsEngine _ttsEngine;
 
   StreamSubscription<SpeechEngineEvent>? _eventSub;
   StreamSubscription<List<PhrasebookEntry>>? _phrasebookSub;
@@ -134,7 +139,6 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         _accessibilitySettings = accessibilitySettings ?? const AccessibilitySettings(),
         super(HomeCommunicationState(activeModel: AsrModelRegistry.defaultModel)) {
     _personalizationPipeline = PersonalizationPipeline(repository: _personalizationRepository);
-    _ttsEngine = OfflineTtsEngine();
     _initialize();
   }
 
@@ -160,6 +164,22 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
     state = state.copyWith(activeModel: activeModel, selectedLanguage: profile.preferredLanguage);
 
+    // Resolve the speech provider. Ghanaian languages (Twi, Ewe, Dagbani)
+    // have no bundled on-device model, so they REQUIRE the UG HCI Lab API.
+    // Fail with a clear, actionable message instead of a missing-model crash.
+    final labSettings = await UgHciLabSettings.load();
+    if (profile.preferredLanguage == 'twi' && !labSettings.isConfigured) {
+      state = state.copyWith(
+        engineState: UiEngineState.error,
+        errorMessage:
+            'Twi needs the UG HCI Lab speech API — there is no on-device Twi model. '
+            'Open Settings → Speech Provider and add your API key to enable it.',
+      );
+      return;
+    }
+
+    state = state.copyWith(providerLabel: labSettings.providerLabel);
+
     // Subscribe to Phrasebook
     _phrasebookSub = _phrasebookRepository.watchQuickPhrases().listen((phrases) {
       state = state.copyWith(quickPhrases: phrases);
@@ -176,7 +196,16 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       return;
     }
 
-    _speechEngine = SpeechEngineFactory.createEngine(config: state.activeModel);
+    _speechEngine = SpeechEngineFactory.createEngine(
+      config: state.activeModel,
+      useLabApi: labSettings.useLabApi,
+      labSettings: labSettings,
+    );
+    _ttsEngine = TtsEngineFactory.create(
+      provider: labSettings.provider,
+      labSettings: labSettings,
+      appLanguage: profile.preferredLanguage,
+    );
     _recorderService = AudioRecorderService()
       ..micGainMultiplier = _accessibilitySettings.micGainMultiplier;
     await _recorderService.initialize();

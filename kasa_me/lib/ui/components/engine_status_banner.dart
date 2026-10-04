@@ -10,11 +10,16 @@ class EngineStatusBanner extends ConsumerWidget {
   final String? errorMessage;
   final VoidCallback? onRetry;
 
+  /// Which speech backend is active, e.g. "Offline" or "UG HCI Lab API".
+  /// Shown next to the ready label so demos make the provider visible.
+  final String? providerLabel;
+
   const EngineStatusBanner({
     super.key,
     required this.engineState,
     this.errorMessage,
     this.onRetry,
+    this.providerLabel,
   });
 
   @override
@@ -41,7 +46,7 @@ class EngineStatusBanner extends ConsumerWidget {
           borderColor: Colors.green.shade200,
           icon: Icons.check_circle_outline_rounded,
           iconColor: Colors.green.shade700,
-          label: 'Ready',
+          label: providerLabel != null ? 'Ready · $providerLabel' : 'Ready',
         );
 
       case UiEngineState.listening:

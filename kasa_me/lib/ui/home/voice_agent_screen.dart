@@ -86,6 +86,7 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
               EngineStatusBanner(
                 engineState: state.engineState,
                 errorMessage: state.errorMessage,
+                providerLabel: state.providerLabel,
                 onRetry: () => notifier.startPushToTalk(),
               ),
               const Spacer(flex: 2),

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../storage/database/app_database.dart';
-import '../../speech/tts/offline_tts_engine.dart';
 import '../../speech/tts/tts_engine.dart';
+import '../../speech/tts/tts_engine_factory.dart';
+import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../home/home_communication_notifier.dart' show databaseProvider;
 import '../theme/app_theme.dart';
 
@@ -25,13 +26,27 @@ class PhrasebookScreen extends ConsumerStatefulWidget {
 }
 
 class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
-  final TtsEngine _tts = OfflineTtsEngine();
+  late TtsEngine _tts;
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _initTts();
+    // Rebuild the TTS engine if the user changes speech provider in Settings.
+    ref.listen<UgHciLabSettings>(ugHciLabSettingsProvider, (_, __) {
+      _tts.dispose();
+      _initTts();
+    });
+  }
+
+  void _initTts() {
+    final settings = ref.read(ugHciLabSettingsProvider);
+    _tts = TtsEngineFactory.create(
+      provider: settings.provider,
+      labSettings: settings,
+    );
     _tts.initialize();
   }
 

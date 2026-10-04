@@ -148,6 +148,14 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
                       'Coming soon',
                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
+                  if (lang.code == 'twi')
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Requires UG HCI Lab API key — Settings → Speech Provider',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                    ),
                 ],
               ),
             ),
