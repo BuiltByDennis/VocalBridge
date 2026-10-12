@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/logging/app_logger.dart';
+import '../ug_hci_lab/lab_api_error.dart';
 import '../ug_hci_lab/ug_hci_lab_config.dart';
 import 'tts_engine.dart';
 
@@ -18,17 +19,25 @@ import 'tts_engine.dart';
 /// en-US. Returned audio is written to a temp file and played with
 /// just_audio (already a project dependency).
 ///
-/// Upload contract (VERIFY against the Lab docs once API access is granted;
-/// see `kasa_me/docs/ug-hci-lab-integration.md`):
-///   POST {baseUrl}{ttsPath}  (application/json)
-///     { "text": "...", "language": "tw" }
-///     header Authorization: {scheme} {apiKey}
-///   Response: raw audio bytes (audio/*), OR JSON with an "audio_base64"
-///   (also accepts "audio") field.
+/// Upload contract (HCI Lab API docs, confirmed Oct 2026):
+///   POST {baseUrl}/api/v1/tts  (application/json)
+///     { "text": "...", "model_type": "ss", "speaker": "PT" }
+///     header Authorization: Bearer {apiKey}
+///   The voice is fixed by the Lab — model_type is always "ss" and the
+///   speaker always "PT"; there is no language parameter.
+///   Success: the response body IS the WAV audio (Content-Type:
+///   audio/wav), metadata in headers. Errors: JSON envelope, see
+///   [LabApiException] — so the Content-Type is checked before decoding.
+///   Limit: 250 characters per request, so longer text is split into
+///   sentence-sized chunks and played back-to-back (one request each).
 class UgHciLabTtsEngine implements TtsEngine {
+  /// The Lab's per-request character cap.
+  static const int maxCharsPerRequest = 250;
+
   final UgHciLabSettings settings;
 
-  /// Lab language code, e.g. "tw". Resolved via [UgHciLabSettings.labLanguageCode].
+  /// App-side language this engine was created for (e.g. "tw"). Kept for
+  /// logging only — the Lab TTS contract has no language field.
   final String language;
 
   AudioPlayer? _player;
@@ -63,35 +72,13 @@ class UgHciLabTtsEngine implements TtsEngine {
 
     _isSpeaking = true;
     try {
-      AppLogger.log('TTS', 'UgHciLabTtsEngine synthesizing (${text.length} chars).');
-      final response = await http
-          .post(
-            settings.ttsUri(),
-            headers: {
-              ...settings.authHeaders(),
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({'text': text, 'language': language}),
-          )
-          .timeout(Duration(seconds: settings.timeoutSeconds));
-
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(
-            'TTS request failed (${response.statusCode}): ${response.body.length > 200 ? response.body.substring(0, 200) : response.body}');
+      final chunks = _chunkText(text.trim());
+      AppLogger.log('TTS',
+          'UgHciLabTtsEngine synthesizing (${text.length} chars, ${chunks.length} request(s)).');
+      for (final chunk in chunks) {
+        if (!_isSpeaking) break; // stop() called mid-playback
+        await _speakChunk(chunk);
       }
-
-      final audioBytes = _extractAudioBytes(response);
-      final dir = await getTemporaryDirectory();
-      final file = File(
-          '${dir.path}/kasa_tts_${DateTime.now().millisecondsSinceEpoch}.wav');
-      await file.writeAsBytes(audioBytes);
-
-      await _player!.setFilePath(file.path);
-      await _player!.play();
-      // Wait until playback finishes (or is stopped).
-      await _player!.processingStateStream.firstWhere(
-        (s) => s == ProcessingState.completed || s == ProcessingState.idle,
-      );
       AppLogger.log('TTS', 'UgHciLabTtsEngine finished speaking.');
     } catch (e, stack) {
       AppLogger.error('TTS', 'UgHciLabTtsEngine failed', e, stack);
@@ -107,11 +94,55 @@ class UgHciLabTtsEngine implements TtsEngine {
     }
   }
 
+  /// Synthesizes one ≤250-char chunk and plays it to completion.
+  Future<void> _speakChunk(String chunk) async {
+    final response = await http
+        .post(
+          settings.ttsUri(),
+          headers: {
+            ...settings.authHeaders(),
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'text': chunk,
+            'model_type': 'ss',
+            'speaker': 'PT',
+          }),
+        )
+        .timeout(Duration(seconds: settings.timeoutSeconds));
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw LabApiException.fromResponse(
+          response.body, response.statusCode);
+    }
+
+    final audioBytes = _extractAudioBytes(response);
+    final dir = await getTemporaryDirectory();
+    final file = File(
+        '${dir.path}/kasa_tts_${DateTime.now().millisecondsSinceEpoch}.wav');
+    await file.writeAsBytes(audioBytes);
+
+    await _player!.setFilePath(file.path);
+    await _player!.play();
+    // Wait until playback finishes (or is stopped).
+    await _player!.processingStateStream.firstWhere(
+      (s) => s == ProcessingState.completed || s == ProcessingState.idle,
+    );
+  }
+
   Uint8List _extractAudioBytes(http.Response response) {
     final contentType =
         response.headers['content-type']?.toLowerCase() ?? '';
     if (contentType.contains('audio')) {
       return response.bodyBytes;
+    }
+    // Per the docs, a JSON body on this endpoint is an error envelope —
+    // surface the Lab's real reason (quota, validation, …) instead of a
+    // generic "not audio" failure.
+    if (contentType.contains('json')) {
+      final parsed = LabApiException.tryParse(
+          response.body, response.statusCode);
+      if (parsed != null) throw parsed;
     }
     // Fallback: JSON envelope carrying base64 audio.
     try {
@@ -122,6 +153,44 @@ class UgHciLabTtsEngine implements TtsEngine {
     } catch (_) {}
     throw Exception(
         'TTS response was not audio (content-type: $contentType).');
+  }
+
+  /// Splits [text] into chunks of at most [maxCharsPerRequest]
+  /// characters, preferring sentence boundaries, then word boundaries,
+  /// so long messages survive the Lab's 250-character cap.
+  static List<String> _chunkText(String text) {
+    if (text.length <= maxCharsPerRequest) return [text];
+    final sentences = text.split(RegExp(r'(?<=[.!?…])\s+'));
+    final chunks = <String>[];
+    var current = '';
+    void flush() {
+      if (current.trim().isNotEmpty) chunks.add(current.trim());
+      current = '';
+    }
+
+    for (final sentence in sentences) {
+      if (sentence.length > maxCharsPerRequest) {
+        flush();
+        var rest = sentence;
+        while (rest.length > maxCharsPerRequest) {
+          var cut = rest.lastIndexOf(' ', maxCharsPerRequest);
+          if (cut <= 0) cut = maxCharsPerRequest;
+          chunks.add(rest.substring(0, cut).trim());
+          rest = rest.substring(cut).trim();
+        }
+        current = rest;
+      } else if (current.isEmpty) {
+        current = sentence;
+      } else if (current.length + 1 + sentence.length <=
+          maxCharsPerRequest) {
+        current = '$current $sentence';
+      } else {
+        flush();
+        current = sentence;
+      }
+    }
+    flush();
+    return chunks;
   }
 
   @override

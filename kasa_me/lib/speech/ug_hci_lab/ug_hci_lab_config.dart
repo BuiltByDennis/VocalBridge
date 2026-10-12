@@ -13,32 +13,45 @@ enum SpeechProvider { offline, ugHciLab }
 /// Persisted settings for the UG HCI Lab speech APIs.
 ///
 /// The API key lives in [FlutterSecureStorage] (encrypted), never in plain
-/// text, logs, or memory snapshots. Endpoint paths are configurable because
-/// the exact Lab API routes are confirmed when API access is granted —
-/// see `kasa_me/docs/ug-hci-lab-integration.md`.
+/// text, logs, or memory snapshots. Defaults below are the Lab's published
+/// contract (HCI Lab API docs, confirmed Oct 2026): gateway at
+/// lab-subscription-platform.vercel.app, Bearer token auth,
+/// POST /api/v1/asr and POST /api/v1/tts. Paths stay configurable in
+/// Settings in case the Lab moves the gateway.
 class UgHciLabSettings {
   static const _storageKey = 'ug_hci_lab_settings_v1';
   static const _storage = FlutterSecureStorage();
 
   final SpeechProvider provider;
-  final String baseUrl; // e.g. https://speech.hcilab.ug.edu.gh  (VERIFY)
+  final String baseUrl;
   final String apiKey;
-  final String asrPath; // appended to baseUrl, e.g. /asr  (VERIFY)
-  final String ttsPath; // appended to baseUrl, e.g. /tts  (VERIFY)
-  final String authScheme; // e.g. "Bearer"
+  final String asrPath; // appended to baseUrl
+  final String ttsPath; // appended to baseUrl
+  final String authScheme; // docs: "Bearer"
   final int timeoutSeconds;
 
   /// App language code -> Lab API language code.
-  /// These are best-guess ISO-style codes — VERIFY against the Lab docs
-  /// once API access is granted, then update here (no code changes needed).
+  ///
+  /// NOTE: the Lab's published ASR/TTS contract takes NO language
+  /// parameter — ASR infers the language from the audio (the gateway is
+  /// built around Akan/Twi) and TTS uses a fixed voice (model_type "ss",
+  /// speaker "PT"). This map is retained for logging and for any future
+  /// Lab endpoints that do accept a language code; the engines do not
+  /// send it today.
   final Map<String, String> languageCodes;
+
+  /// The Lab gateway's published base URL (HCI Lab API docs, Oct 2026).
+  static const String defaultBaseUrl =
+      'https://lab-subscription-platform.vercel.app';
+  static const String defaultAsrPath = '/api/v1/asr';
+  static const String defaultTtsPath = '/api/v1/tts';
 
   const UgHciLabSettings({
     this.provider = SpeechProvider.offline,
-    this.baseUrl = '',
+    this.baseUrl = defaultBaseUrl,
     this.apiKey = '',
-    this.asrPath = '/asr',
-    this.ttsPath = '/tts',
+    this.asrPath = defaultAsrPath,
+    this.ttsPath = defaultTtsPath,
     this.authScheme = 'Bearer',
     this.timeoutSeconds = 30,
     this.languageCodes = const {
@@ -106,16 +119,22 @@ class UgHciLabSettings {
         'languageCodes': languageCodes,
       };
 
+  static String? _nonEmpty(String? v) =>
+      (v == null || v.trim().isEmpty) ? null : v;
+
   factory UgHciLabSettings.fromJson(Map<String, dynamic> json) {
     return UgHciLabSettings(
       provider: SpeechProvider.values.firstWhere(
         (e) => e.name == json['provider'],
         orElse: () => SpeechProvider.offline,
       ),
-      baseUrl: json['baseUrl'] as String? ?? '',
+      // Empty strings fall back to the published defaults so a settings
+      // blob saved by an older build (blank URL, guessed paths) still
+      // lands on the real gateway.
+      baseUrl: _nonEmpty(json['baseUrl'] as String?) ?? defaultBaseUrl,
       apiKey: json['apiKey'] as String? ?? '',
-      asrPath: json['asrPath'] as String? ?? '/asr',
-      ttsPath: json['ttsPath'] as String? ?? '/tts',
+      asrPath: _nonEmpty(json['asrPath'] as String?) ?? defaultAsrPath,
+      ttsPath: _nonEmpty(json['ttsPath'] as String?) ?? defaultTtsPath,
       authScheme: json['authScheme'] as String? ?? 'Bearer',
       timeoutSeconds: (json['timeoutSeconds'] as num?)?.toInt() ?? 30,
       languageCodes: (json['languageCodes'] as Map?)?.map(

@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../../core/logging/app_logger.dart';
 import '../asr/models/asr_model_config.dart';
+import '../ug_hci_lab/lab_api_error.dart';
 import '../ug_hci_lab/ug_hci_lab_config.dart';
 import 'speech_engine.dart';
 
@@ -17,15 +19,17 @@ import 'speech_engine.dart';
 /// the bundled offline models. Audio is buffered during [start]/[stop]
 /// and uploaded as a 16 kHz mono PCM16 WAV on [stop].
 ///
-/// Upload contract (VERIFY against the Lab docs once API access is granted;
-/// see `kasa_me/docs/ug-hci-lab-integration.md`):
-///   POST {baseUrl}{asrPath}  (multipart/form-data)
-///     - file field "audio": utterance.wav (16 kHz mono PCM16 WAV)
-///     - field "language": Lab language code (e.g. "tw")
-///     - field "sample_rate": "16000"
-///     - header Authorization: {scheme} {apiKey}
-///   Response JSON: { "transcript": "...", "confidence": 0.92 }
-///   (also accepts "text" / "transcription" as the transcript key)
+/// Upload contract (HCI Lab API docs, confirmed Oct 2026):
+///   POST {baseUrl}/api/v1/asr  (multipart/form-data)
+///     - file field "file": utterance.wav (16 kHz mono PCM16 WAV,
+///       sent with an audio/wav content type so the format is detected)
+///     - header Authorization: Bearer {apiKey}
+///   The API takes NO language parameter — it infers the language from
+///   the audio. Limits: 120 s and 10 MB per request.
+///   Errors use the documented JSON envelope (see [LabApiException]).
+///   The success body's shape is not spelled out in the docs, so parsing
+///   accepts "transcript" / "text" / "transcription" keys and falls back
+///   to treating a non-JSON body as the transcript itself.
 class UgHciLabSpeechEngine implements SpeechEngine {
   final AsrModelConfig config;
   final UgHciLabSettings settings;
@@ -101,18 +105,30 @@ class UgHciLabSpeechEngine implements SpeechEngine {
       return;
     }
 
+    // The Lab caps ASR at 120 s per request — fail here with a message
+    // the user can act on instead of burning an upload on a rejection.
+    final seconds = pcmBytes.length / (config.sampleRate * 2);
+    if (seconds > 120) {
+      _eventController.add(const SpeechEngineError(
+        'That recording is over 2 minutes — the UG HCI Lab API accepts '
+        'up to 2 minutes at a time. Please record a shorter message.',
+      ));
+      _eventController.add(const FinalTranscript(''));
+      _eventController.add(const EngineReady());
+      return;
+    }
+
     final startedAt = DateTime.now();
     try {
       final wav = _encodeWav(pcmBytes, sampleRate: config.sampleRate);
       final request =
           http.MultipartRequest('POST', settings.asrUri())
             ..headers.addAll(settings.authHeaders())
-            ..fields['language'] = _labLanguage
-            ..fields['sample_rate'] = config.sampleRate.toString()
             ..files.add(http.MultipartFile.fromBytes(
-              'audio',
+              'file',
               wav,
               filename: 'utterance.wav',
+              contentType: MediaType('audio', 'wav'),
             ));
 
       final streamed = await request
@@ -121,18 +137,12 @@ class UgHciLabSpeechEngine implements SpeechEngine {
       final body = await streamed.stream.bytesToString();
 
       if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
-        throw Exception(
-            'ASR request failed (${streamed.statusCode}): ${_truncate(body)}');
+        throw LabApiException.fromResponse(body, streamed.statusCode);
       }
 
-      final decoded = jsonDecode(body) as Map<String, dynamic>;
-      final transcript = (decoded['transcript'] ??
-              decoded['text'] ??
-              decoded['transcription'] ??
-              '')
-          .toString();
-      final confidence =
-          (decoded['confidence'] as num?)?.toDouble();
+      final parsed = _parseTranscript(body);
+      final transcript = parsed.$1;
+      final confidence = parsed.$2;
 
       final result = RecognitionResult(
         text: transcript,
@@ -146,7 +156,9 @@ class UgHciLabSpeechEngine implements SpeechEngine {
     } catch (e, stack) {
       AppLogger.error('UG_HCI_LAB', 'ASR request failed', e, stack);
       _eventController.add(SpeechEngineError(
-        'Could not reach the UG HCI Lab speech API. Check your connection and API key in Settings → Speech Provider.',
+        e is LabApiException
+            ? e.userMessage
+            : 'Could not reach the UG HCI Lab speech API. Check your connection and API key in Settings → Speech Provider.',
         error: e,
       ));
       // Emit an empty final transcript so the UI returns to a usable state.
@@ -194,6 +206,25 @@ class UgHciLabSpeechEngine implements SpeechEngine {
     return out.buffer.asUint8List();
   }
 
-  static String _truncate(String s, [int max = 200]) =>
-      s.length <= max ? s : '${s.substring(0, max)}…';
+  /// Extracts (transcript, confidence) from an ASR success body.
+  ///
+  /// The docs don't spell out the success shape, so accept the common
+  /// transcript keys, and treat a non-JSON body as the transcript itself.
+  static (String, double?) _parseTranscript(String body) {
+    final trimmed = body.trim();
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map<String, dynamic>) {
+        final transcript = (decoded['transcript'] ??
+                decoded['text'] ??
+                decoded['transcription'] ??
+                '')
+            .toString();
+        return (transcript, (decoded['confidence'] as num?)?.toDouble());
+      }
+    } catch (_) {
+      // Not JSON — fall through to the plain-text transcript.
+    }
+    return (trimmed, null);
+  }
 }
