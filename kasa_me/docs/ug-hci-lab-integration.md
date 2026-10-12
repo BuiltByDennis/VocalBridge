@@ -11,34 +11,51 @@ interfaces, so no architecture changes are needed once credentials arrive:
 
 | Piece | File |
 |---|---|
-| Settings model + secure storage (base URL, API key, endpoint paths, language codes) | `lib/speech/ug_hci_lab/ug_hci_lab_config.dart` |
-| ASR engine (buffers mic audio → WAV → `POST {base}/asr`) | `lib/speech/engine/ug_hci_lab_speech_engine.dart` |
-| TTS engine (text → `POST {base}/tts` → plays returned audio) | `lib/speech/tts/ug_hci_lab_tts_engine.dart` |
+| Settings model + secure storage (base URL, API key, endpoint paths) | `lib/speech/ug_hci_lab/ug_hci_lab_config.dart` |
+| Error parsing for the Lab's documented error envelope | `lib/speech/ug_hci_lab/lab_api_error.dart` |
+| ASR engine (buffers mic audio → WAV → `POST /api/v1/asr`, field `file`) | `lib/speech/engine/ug_hci_lab_speech_engine.dart` |
+| TTS engine (text → `POST /api/v1/tts` → plays returned WAV) | `lib/speech/tts/ug_hci_lab_tts_engine.dart` |
 | Provider routing for ASR + TTS | `lib/speech/engine/speech_engine_factory.dart`, `lib/speech/tts/tts_engine_factory.dart` |
 | Settings UI: provider switch, API key entry, test connection | `lib/ui/settings/speech_provider_screen.dart` (route `/settings/speech-provider`) |
 | Twi gating with an actionable error when no key is set | `lib/ui/home/home_communication_notifier.dart` |
 | Provider shown in the engine banner ("Ready · UG HCI Lab API") | `lib/ui/components/engine_status_banner.dart` |
 
-## 2. When API access is granted — 15-minute checklist
+## 2. The Lab contract (confirmed from the HCI Lab API docs, Oct 2026)
 
-1. Open the Lab's API docs and confirm the **exact** values for:
-   - base URL
-   - ASR endpoint path (default `/asr`) and request format
-     (default: multipart `audio` = 16 kHz mono PCM16 WAV, fields `language`,
-     `sample_rate`; response JSON `{"transcript": "…", "confidence": 0.9}`)
-   - TTS endpoint path (default `/tts`) and request/response format
-     (default: JSON `{"text","language"}` → raw audio bytes or
-     `{"audio_base64": "…"}`)
-   - auth scheme/header (default `Authorization: Bearer <key>`)
-   - language codes for Twi/Ewe/Dagbani (defaults: `tw`, `ee`, `dag` — **verify**)
-2. If anything differs, update it in **Settings → Speech Provider → Advanced**
-   — no code changes needed. Only if the contract is fundamentally different
-   (e.g. WebSocket streaming) do the two engine files need edits; the
-   upload/parse assumptions are marked `VERIFY` in code comments.
-3. Paste the base URL + API key, tap **Test connection**, then switch the
-   provider to **UG HCI Lab API**.
-4. Go to Language → **Twi**. The banner should read `Ready · UG HCI Lab API`.
-5. Hold to speak in Twi → transcript appears → auto-speak reads it back in Twi.
+| | ASR | TTS |
+|---|---|---|
+| Endpoint | `POST https://lab-subscription-platform.vercel.app/api/v1/asr` | `POST https://lab-subscription-platform.vercel.app/api/v1/tts` |
+| Auth | `Authorization: Bearer <token>` | same |
+| Request | multipart/form-data, field **`file`** = audio file (wav/mp3/…; filename or `audio/*` content type drives format detection). **No language parameter** — the API infers it from the audio | JSON `{"text": "…", "model_type": "ss", "speaker": "PT"}` — model/speaker are always `ss`/`PT` |
+| Response | transcript JSON (parser accepts `transcript`/`text`/`transcription`, or a plain-text body) | the body **is** the WAV audio (`audio/wav`); metadata in headers |
+| Errors | JSON `{"request_id", "error": {"code", "message"}}` — the app branches on this, incl. quota codes | same |
+| Per-request limits | 120 s audio, 10 MB | **250 characters** (the app auto-splits longer text into sentence chunks, one request each) |
+
+### Quotas (per API key — plan testing and the demo around these!)
+
+| | Per day | Per week |
+|---|---|---|
+| ASR | **10 requests** | 50 requests / 30 min of audio |
+| TTS | **15 requests** | 70 requests / 5,000 characters |
+
+Every mic utterance in a Ghanaian language = 1 ASR request. Every Twi
+read-aloud (incl. each auto-speak and each chunk of a long message) = 1 TTS
+request. English ASR/TTS is offline and free. **Budget for demo day:** one
+full run of the §3 script costs ≈ 3 ASR + 2 TTS — rehearse at most twice,
+and don't burn the day's quota on casual testing before the screening.
+The Settings **Test connection** button makes one real TTS request
+("Akwaaba") — that's the only way to truly verify the key, but it counts.
+
+### Setup (2 minutes — defaults are already the real values)
+
+1. **Settings → Speech Provider** → select **UG HCI Lab API**.
+2. Base URL is pre-filled (`https://lab-subscription-platform.vercel.app`) —
+   just paste the **API key**. Tap **Save**, then **Test connection**.
+3. Go to Language → **Twi**. The banner should read `Ready · UG HCI Lab API`.
+4. Hold to speak in Twi → transcript appears → translation card → read-aloud.
+
+If the Lab ever moves the gateway, base URL and endpoint paths can be
+changed under **Settings → Speech Provider → Advanced** — no rebuild.
 
 ## 3. Demo script (screening)
 
@@ -51,10 +68,10 @@ in a hospital ward communicating a need to an English-speaking nurse:
    the left, English ("I would like some water") on the right — the completed
    task, visible and undeniable.
 4. Tap the speaker on the English side: the nurse hears it read aloud in
-   English. **Task complete.**
+   English (offline TTS — no quota cost). **Task complete.**
 5. Flip it: switch the app language to English, speak "The doctor is coming"
    → the card shows the Twi gloss ("Dokota no reba") → tap its speaker to
-   read it aloud in Twi to the patient.
+   read it aloud in Twi to the patient (1 Lab TTS request).
 6. Show one accessibility feature live (dwell control or high-contrast toggle).
 7. Show the high-impact guard: say a money phrase → confirm dialog appears.
 
@@ -69,8 +86,11 @@ in a hospital ward communicating a need to an English-speaking nurse:
 - **What about the fine-tuned wav2vec2 model in `research/`?** It is the R&D
   track (personalized atypical-speech models), not the demo path. The demo
   uses the Lab API; the research continues in parallel for sustainability.
-- **Scalability:** adding Ewe = one `languageCodes` entry + Lab language
-  support. No new model bundling, no app-size growth.
+- **Scalability:** the Lab API takes no language parameter — it infers the
+  language from the audio — so new Ghanaian languages arrive when the Lab
+  gateway supports them, with no app changes or model bundling. (Ewe and
+  Dagbani support on the gateway is the Lab's roadmap, not ours — today
+  the demonstrated path is Twi.)
 - **Sustainability:** zero server costs (Lab hosts models; personalization is
   on-device), offline fallback keeps the app useful without connectivity,
   modular language packs keep maintenance to config, not releases.

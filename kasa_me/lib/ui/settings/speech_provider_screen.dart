@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../../speech/ug_hci_lab/lab_api_error.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../theme/app_theme.dart';
 
@@ -53,10 +56,10 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
       baseUrl: _baseUrlController.text.trim(),
       apiKey: _apiKeyController.text.trim(),
       asrPath: _asrPathController.text.trim().isEmpty
-          ? '/asr'
+          ? UgHciLabSettings.defaultAsrPath
           : _asrPathController.text.trim(),
       ttsPath: _ttsPathController.text.trim().isEmpty
-          ? '/tts'
+          ? UgHciLabSettings.defaultTtsPath
           : _ttsPathController.text.trim(),
     );
     await ref.read(ugHciLabSettingsProvider.notifier).update(updated);
@@ -75,14 +78,16 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     setState(() {});
   }
 
-  /// Best-effort reachability check. A 401/403 means the server is reachable
-  /// but the key was rejected — still useful signal. Exact endpoint paths
-  /// are confirmed when Lab API access is granted.
+  /// Real end-to-end probe: asks the Lab TTS endpoint to synthesize one
+  /// word ("Akwaaba"). That is the only way to know the key, the path,
+  /// and the voice all work. It costs 1 of the day's 15 TTS requests, so
+  /// it only runs when the user taps the button.
   Future<void> _testConnection() async {
     final base = _baseUrlController.text.trim();
-    if (base.isEmpty) {
+    final key = _apiKeyController.text.trim();
+    if (base.isEmpty || key.isEmpty) {
       setState(() {
-        _testResult = 'Enter the API base URL first.';
+        _testResult = 'Enter the API base URL and API key first.';
         _testOk = false;
       });
       return;
@@ -92,18 +97,47 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
       _testResult = null;
     });
     try {
-      final normalized = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+      final normalized =
+          base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+      final ttsPath = _ttsPathController.text.trim().isEmpty
+          ? UgHciLabSettings.defaultTtsPath
+          : _ttsPathController.text.trim();
       final response = await http
-          .get(Uri.parse(normalized),
-              headers: {'Authorization': 'Bearer ${_apiKeyController.text.trim()}'})
-          .timeout(const Duration(seconds: 15));
+          .post(
+            Uri.parse('$normalized$ttsPath'),
+            headers: {
+              'Authorization': 'Bearer $key',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(
+                {'text': 'Akwaaba', 'model_type': 'ss', 'speaker': 'PT'}),
+          )
+          .timeout(const Duration(seconds: 20));
       final code = response.statusCode;
-      if (code == 401 || code == 403) {
-        _testResult = 'Server reachable (HTTP $code) — API key was rejected. Check the key.';
+      final contentType =
+          response.headers['content-type']?.toLowerCase() ?? '';
+      if (code >= 200 && code < 300 && contentType.contains('audio')) {
+        _testResult = 'Connected ✓ — the Lab accepted your key and returned '
+            'speech audio. (This test used 1 of today\'s 15 TTS requests.)';
+        _testOk = true;
+      } else if (code == 401 || code == 403) {
+        _testResult = 'Server reachable — but the API key was rejected '
+            '(HTTP $code). Check the key.';
         _testOk = false;
       } else {
-        _testResult = 'Server reachable (HTTP $code). Confirm the ASR/TTS paths below match the Lab docs.';
-        _testOk = true;
+        final labError = LabApiException.tryParse(response.body, code);
+        if (labError != null && labError.isQuota) {
+          _testResult = 'Your key works ✓ — but the Lab TTS quota is used '
+              'up right now. It resets on the Lab\'s daily/weekly schedule.';
+          _testOk = true;
+        } else if (labError != null) {
+          _testResult = 'The Lab said: ${labError.serverMessage}';
+          _testOk = false;
+        } else {
+          _testResult = 'Server reachable (HTTP $code). If speech does not '
+              'work in the app, check the endpoint paths under Advanced.';
+          _testOk = code >= 200 && code < 300;
+        }
       }
     } catch (e) {
       _testResult = 'Could not reach the server: $e';
@@ -175,13 +209,13 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                         _textField(
                           controller: _asrPathController,
                           label: 'ASR path',
-                          hint: '/asr',
+                          hint: '/api/v1/asr',
                         ),
                         const SizedBox(height: 12),
                         _textField(
                           controller: _ttsPathController,
                           label: 'TTS path',
-                          hint: '/tts',
+                          hint: '/api/v1/tts',
                         ),
                         const SizedBox(height: 8),
                         const Text(
