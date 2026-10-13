@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import '../theme/app_theme.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isHC =
+        ref.watch(accessibilitySettingsProvider).highContrastMode;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration:
+            BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: isHC)),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,7 +44,7 @@ class SettingsScreen extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   children: [
-                    _sectionHeader('Speech'),
+                    _sectionHeader('Speech', isHC),
                     _tile(
                       context,
                       icon: Icons.language,
@@ -69,7 +74,7 @@ class SettingsScreen extends StatelessWidget {
                       onTap: () => context.push('/calibration'),
                     ),
                     const SizedBox(height: 16),
-                    _sectionHeader('Accessibility'),
+                    _sectionHeader('Accessibility', isHC),
                     _tile(
                       context,
                       icon: Icons.accessibility_new_rounded,
@@ -79,7 +84,7 @@ class SettingsScreen extends StatelessWidget {
                       iconColor: Colors.teal,
                     ),
                     const SizedBox(height: 16),
-                    _sectionHeader('Data & Privacy'),
+                    _sectionHeader('Data & Privacy', isHC),
                     _tile(
                       context,
                       icon: Icons.delete_sweep_outlined,
@@ -89,7 +94,7 @@ class SettingsScreen extends StatelessWidget {
                       iconColor: Colors.redAccent,
                     ),
                     const SizedBox(height: 16),
-                    _sectionHeader('Developer'),
+                    _sectionHeader('Developer', isHC),
                     _tile(
                       context,
                       icon: Icons.bug_report_outlined,
@@ -98,12 +103,12 @@ class SettingsScreen extends StatelessWidget {
                       onTap: () => context.push('/diagnostics'),
                     ),
                     const SizedBox(height: 16),
-                    _sectionHeader('About'),
+                    _sectionHeader('About', isHC),
                     _tile(
                       context,
                       icon: Icons.info_outline,
                       title: 'About Kasa Me',
-                      subtitle: 'Version 1.0.0 · Offline-first assistive ASR · Powered by Sherpa-ONNX',
+                      subtitle: 'Version 1.1.0 · Assistive speech for Ghana · 2026',
                       onTap: () => _showAboutDialog(context),
                     ),
                   ],
@@ -116,15 +121,15 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _sectionHeader(String title) {
+  Widget _sectionHeader(String title, bool isHC) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8, top: 4),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: AppTheme.textSecondary,
+          color: AppTheme.pageTextSecondary(highContrast: isHC),
           letterSpacing: 1.2,
         ),
       ),
@@ -199,9 +204,12 @@ class SettingsScreen extends StatelessWidget {
     showAboutDialog(
       context: context,
       applicationName: 'Kasa Me',
-      applicationVersion: '1.0.0',
+      applicationVersion: '1.1.0',
       applicationLegalese:
-          '© 2024 VocalBridge. All rights reserved.\n\nPowered by Sherpa-ONNX on-device speech recognition.\nFully offline. No data leaves your device.',
+          '© 2026 VocalBridge. All rights reserved.\n\n'
+          'Kasa Me gives people with speech impairments — stammering, cerebral palsy, stroke, cleft palate and more — a voice that learns how they speak.\n\n'
+          'Ghanaian languages (Twi, Ewe, Dagbani) are recognised and spoken through the University of Ghana HCI Lab speech APIs. English runs fully offline on-device (Sherpa-ONNX).\n\n'
+          'Your calibration recordings, corrections and personal speech profile are stored only on this device.',
     );
   }
 }

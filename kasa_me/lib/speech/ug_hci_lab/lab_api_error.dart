@@ -36,7 +36,21 @@ class LabApiException implements Exception {
   bool get isQuota => code.contains('quota');
   bool get isAuth => statusCode == 401 || statusCode == 403;
 
+  /// The Lab's backend (not the gateway, not the key) is having a bad
+  /// moment — e.g. its TTS service reports itself "temporarily
+  /// unavailable". These are worth an automatic retry and a calm,
+  /// blame-free message: nothing is wrong at the user's end.
+  bool get isUnavailable =>
+      statusCode == 503 ||
+      code.contains('unavailable') ||
+      code.contains('upstream');
+
   String get userMessage {
+    if (isUnavailable) {
+      return 'The UG HCI Lab speech service is temporarily unavailable. '
+          'Wait a few seconds and try again — nothing is wrong with '
+          'your key or your phone.';
+    }
     if (isQuota) {
       return 'The UG HCI Lab speech quota is used up for now — the Lab '
           'limits how much speech each key can process per day and week. '

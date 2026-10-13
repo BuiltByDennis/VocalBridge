@@ -41,6 +41,17 @@ class AppTheme {
   static LinearGradient backgroundGradient({bool highContrast = false}) =>
       highContrast ? highContrastGradient : mainBackgroundGradient;
 
+  /// Text colour for content sitting DIRECTLY on the page background
+  /// (screen titles, section headers, empty states). Content inside the
+  /// app's white cards keeps [textPrimary] in both modes — black on
+  /// white is itself high contrast. Screens that painted page text with
+  /// the light-mode colours were invisible on the black HC background;
+  /// every screen must route page text through these helpers.
+  static Color pageText({required bool highContrast}) =>
+      highContrast ? hcTextPrimary : textPrimary;
+  static Color pageTextSecondary({required bool highContrast}) =>
+      highContrast ? hcTextSecondary : textSecondary;
+
   static ThemeData get lightTheme => _buildTheme(highContrast: false);
   static ThemeData get highContrastTheme => _buildTheme(highContrast: true);
 

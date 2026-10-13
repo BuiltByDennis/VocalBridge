@@ -96,25 +96,7 @@ class UgHciLabTtsEngine implements TtsEngine {
 
   /// Synthesizes one ≤250-char chunk and plays it to completion.
   Future<void> _speakChunk(String chunk) async {
-    final response = await http
-        .post(
-          settings.ttsUri(),
-          headers: {
-            ...settings.authHeaders(),
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'text': chunk,
-            'model_type': 'ss',
-            'speaker': 'PT',
-          }),
-        )
-        .timeout(Duration(seconds: settings.timeoutSeconds));
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw LabApiException.fromResponse(
-          response.body, response.statusCode);
-    }
+    final response = await _synthesizeWithRetry(chunk);
 
     final audioBytes = _extractAudioBytes(response);
     final dir = await getTemporaryDirectory();
@@ -128,6 +110,55 @@ class UgHciLabTtsEngine implements TtsEngine {
     await _player!.processingStateStream.firstWhere(
       (s) => s == ProcessingState.completed || s == ProcessingState.idle,
     );
+  }
+
+  /// POSTs one chunk to the Lab TTS endpoint, retrying transient
+  /// failures (the Lab's TTS backend occasionally reports itself
+  /// "temporarily unavailable", and networks drop) up to 3 attempts
+  /// with growing pauses. Quota and auth failures are NOT retried —
+  /// waiting will not fix them, and retries must never multiply
+  /// against the user's quota without cause.
+  Future<http.Response> _synthesizeWithRetry(String chunk) async {
+    LabApiException? lastLabError;
+    Object? lastNetworkError;
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) {
+        await Future.delayed(Duration(milliseconds: 800 * attempt));
+        AppLogger.log(
+            'TTS', 'Lab TTS retry $attempt/3 — the service may be recovering.');
+      }
+      try {
+        final response = await http
+            .post(
+              settings.ttsUri(),
+              headers: {
+                ...settings.authHeaders(),
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'text': chunk,
+                'model_type': 'ss',
+                'speaker': 'PT',
+              }),
+            )
+            .timeout(Duration(seconds: settings.timeoutSeconds));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return response;
+        }
+        final err =
+            LabApiException.fromResponse(response.body, response.statusCode);
+        if (err.isQuota || err.isAuth || response.statusCode < 500) {
+          throw err; // will not fix itself — surface it now
+        }
+        lastLabError = err; // 5xx / upstream unavailable → try again
+      } on LabApiException {
+        rethrow;
+      } catch (e) {
+        lastNetworkError = e; // timeouts, socket errors → try again
+      }
+    }
+    if (lastLabError != null) throw lastLabError;
+    throw lastNetworkError ?? Exception('Lab TTS request failed.');
   }
 
   Uint8List _extractAudioBytes(http.Response response) {

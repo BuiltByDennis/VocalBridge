@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../../core/accessibility/accessibility_settings.dart';
 import '../../speech/ug_hci_lab/lab_api_error.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../theme/app_theme.dart';
@@ -11,8 +12,8 @@ import '../theme/app_theme.dart';
 /// Settings screen for choosing the speech backend and entering the
 /// University of Ghana HCI Lab API credentials.
 ///
-/// This is the screen that makes the hackathon's ASR/TTS rule actionable:
-/// without a configured API key, Ghanaian languages cannot run in the app.
+/// Ghanaian languages run through the Lab APIs: without a configured
+/// API key, they cannot run in the app.
 class SpeechProviderScreen extends ConsumerStatefulWidget {
   const SpeechProviderScreen({super.key});
 
@@ -65,7 +66,7 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     await ref.read(ugHciLabSettingsProvider.notifier).update(updated);
     if (showConfirmation && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Speech provider settings saved. Restart the conversation screen to apply.')),
+        const SnackBar(content: Text('Speech provider saved — applied immediately.')),
       );
     }
   }
@@ -130,6 +131,12 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
           _testResult = 'Your key works ✓ — but the Lab TTS quota is used '
               'up right now. It resets on the Lab\'s daily/weekly schedule.';
           _testOk = true;
+        } else if (labError != null && labError.isUnavailable) {
+          _testResult = 'The Lab\'s TTS service is temporarily unavailable '
+              'right now — that is on the Lab\'s side, not your key or your '
+              'phone. Wait a minute and test again. In the app, speech '
+              'requests now retry automatically when this happens.';
+          _testOk = false;
         } else if (labError != null) {
           _testResult = 'The Lab said: ${labError.serverMessage}';
           _testOk = false;
@@ -151,10 +158,13 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
   Widget build(BuildContext context) {
     final settings = ref.watch(ugHciLabSettingsProvider);
     final isLab = settings.provider == SpeechProvider.ugHciLab;
+    final isHC =
+        ref.watch(accessibilitySettingsProvider).highContrastMode;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration:
+            BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: isHC)),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,7 +174,6 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   children: [
-                    _infoCard(),
                     const SizedBox(height: 16),
                     _providerCard(
                       title: 'On-device (offline)',
@@ -175,7 +184,7 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                     ),
                     _providerCard(
                       title: 'UG HCI Lab API',
-                      subtitle: 'Required for Twi, Ewe, Dagbani · hackathon-compliant',
+                      subtitle: 'UG HCI Lab speech services · required for Twi, Ewe, Dagbani',
                       icon: Icons.cloud_outlined,
                       selected: isLab,
                       onTap: () => _setProvider(SpeechProvider.ugHciLab),
@@ -218,9 +227,11 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                           hint: '/api/v1/tts',
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Verify these paths against the Lab API docs — update them here, no code changes needed.',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        Text(
+                          'These are the Lab\'s published paths. Change them only if the Lab moves its gateway.',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.pageTextSecondary(highContrast: isHC)),
                         ),
                       ],
                       const SizedBox(height: 16),
@@ -305,35 +316,6 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     );
   }
 
-  Widget _infoCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.info_outline, size: 18, color: AppTheme.textPrimary),
-              SizedBox(width: 8),
-              Text('Hackathon requirement',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text(
-            'ASR and TTS must run through the University of Ghana HCI Lab APIs. '
-            'Complete the Lab consent form to request API access, then paste your key below. '
-            'Until then, the app runs on the offline English engine.',
-            style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.textSecondary),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _providerCard({
     required String title,
