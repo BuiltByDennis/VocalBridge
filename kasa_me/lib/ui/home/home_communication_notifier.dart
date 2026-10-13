@@ -10,6 +10,8 @@ import '../../speech/asr/models/asr_model_registry.dart';
 import '../../speech/engine/speech_engine.dart';
 import '../../speech/engine/speech_engine_factory.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
+import '../../speech/personalization/speech_behavior.dart';
+import '../../speech/personalization/speech_profile_settings.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
 import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/tts_engine_factory.dart';
@@ -180,6 +182,17 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   StreamSubscription<SpeechEngineEvent>? _eventSub;
   StreamSubscription<List<PhrasebookEntry>>? _phrasebookSub;
 
+  // Live-refresh state: settings changes rebuild the engines in place.
+  SpeechBehavior _behavior = SpeechBehavior.fromKey(null);
+  bool _enginesBuilt = false;
+  bool _initializing = false;
+  bool _refreshing = false;
+  bool _pendingRefresh = false;
+  String? _activeSignature;
+
+  /// The behaviour profile currently shaping recognition for this user.
+  SpeechBehavior get behavior => _behavior;
+
   HomeCommunicationNotifier({
     required PhrasebookRepository phrasebookRepository,
     required ProfileRepository profileRepository,
@@ -208,6 +221,19 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   }
 
   Future<void> _initialize() async {
+    _initializing = true;
+    try {
+      await _initializeBody();
+    } finally {
+      _initializing = false;
+    }
+    if (_pendingRefresh) {
+      _pendingRefresh = false;
+      await refreshConfiguration();
+    }
+  }
+
+  Future<void> _initializeBody() async {
     state = state.copyWith(engineState: UiEngineState.loading);
     final startTime = DateTime.now();
 
@@ -217,6 +243,15 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         ?? AsrModelRegistry.defaultModel;
 
     state = state.copyWith(activeModel: activeModel, selectedLanguage: profile.preferredLanguage);
+
+    // Shape recognition around this person: their speech-condition
+    // profile decides how the personalization pipeline behaves.
+    final speechProfile = await SpeechProfileSettings.load();
+    _behavior = speechProfile.behavior;
+    _personalizationPipeline = PersonalizationPipeline(
+      repository: _personalizationRepository,
+      behavior: _behavior,
+    );
 
     // Resolve the speech provider. Ghanaian languages (Twi, Ewe, Dagbani)
     // have no bundled on-device model, so they REQUIRE the UG HCI Lab API.
@@ -233,10 +268,18 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     }
 
     state = state.copyWith(providerLabel: labSettings.providerLabel);
+    _activeSignature = _configSignature(profile, labSettings, speechProfile.conditionKey);
 
-    // Subscribe to Phrasebook
-    _phrasebookSub = _phrasebookRepository.watchQuickPhrases().listen((phrases) {
-      state = state.copyWith(quickPhrases: phrases);
+    // Subscribe to Phrasebook — quick phrases follow the active
+    // language (Twi phrases carry a 'Twi · …' category) so the strip
+    // never mixes languages the person isn't speaking.
+    _phrasebookSub = _phrasebookRepository.watchAllPhrases().listen((phrases) {
+      final isTwi = state.selectedLanguage == 'twi';
+      final filtered = phrases
+          .where((p) => (p.category ?? '').startsWith('Twi') == isTwi)
+          .take(8)
+          .toList();
+      state = state.copyWith(quickPhrases: filtered);
     });
 
     // Request microphone permission before initializing the recorder.
@@ -268,6 +311,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       recorderService: _recorderService,
       speechEngine: _speechEngine,
     );
+    _enginesBuilt = true;
 
     _eventSub = _speechEngine.events.listen(_handleEngineEvent);
 
@@ -311,6 +355,10 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     switch (event) {
       case EngineReady():
         state = state.copyWith(engineState: UiEngineState.ready, partialTranscript: '');
+        if (_pendingRefresh) {
+          _pendingRefresh = false;
+          refreshConfiguration();
+        }
         break;
       case SpeechStarted():
         state = state.copyWith(
@@ -558,13 +606,93 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     }
   }
 
+  /// Everything that decides how the engines are built. When this
+  /// changes, the engines must be rebuilt — in place, no app restart.
+  String _configSignature(PersonalProfileEntity profile,
+          UgHciLabSettings lab, String conditionKey) =>
+      [
+        profile.preferredLanguage,
+        conditionKey,
+        lab.provider.name,
+        lab.baseUrl,
+        lab.apiKey,
+        lab.asrPath,
+        lab.ttsPath,
+      ].join('|');
+
+  Future<void> _teardownEngines() async {
+    await _eventSub?.cancel();
+    _eventSub = null;
+    await _phrasebookSub?.cancel();
+    _phrasebookSub = null;
+    if (_enginesBuilt) {
+      _enginesBuilt = false;
+      try {
+        await _pipeline.dispose();
+      } catch (_) {}
+      try {
+        _ttsEngine.dispose();
+      } catch (_) {}
+    }
+  }
+
+  /// Re-reads the profile and speech-provider settings and rebuilds the
+  /// speech engines IN PLACE when anything relevant changed.
+  ///
+  /// This is what frees the user from "restart the app to apply": saving
+  /// an API key, switching provider, changing language, or picking a
+  /// different speech profile takes effect immediately. A refresh asked
+  /// for mid-utterance is deferred until the engine is ready again, and
+  /// a refresh whose configuration is unchanged is a no-op.
+  Future<void> refreshConfiguration() async {
+    if (_initializing || _refreshing) {
+      _pendingRefresh = true;
+      return;
+    }
+    if (state.engineState == UiEngineState.listening ||
+        state.engineState == UiEngineState.processing) {
+      _pendingRefresh = true;
+      return;
+    }
+    _refreshing = true;
+    try {
+      final profile =
+          await _profileRepository.getActiveProfile('default_user');
+      final lab = await UgHciLabSettings.load();
+      final speechProfile = await SpeechProfileSettings.load();
+      if (_configSignature(profile, lab, speechProfile.conditionKey) ==
+          _activeSignature) {
+        return;
+      }
+      await _teardownEngines();
+      await _initialize();
+    } catch (_) {
+      // Never strand the user engineless because a refresh failed.
+      if (!_enginesBuilt) {
+        try {
+          await _initialize();
+        } catch (_) {}
+      }
+    } finally {
+      _refreshing = false;
+    }
+    if (_pendingRefresh) {
+      _pendingRefresh = false;
+      await refreshConfiguration();
+    }
+  }
+
   @override
   void dispose() {
     _eventSub?.cancel();
     _phrasebookSub?.cancel();
-    _pipeline.dispose();
-    _ttsEngine.dispose();
-    _englishTts.dispose();
+    if (_enginesBuilt) {
+      _pipeline.dispose();
+      _ttsEngine.dispose();
+    }
+    try {
+      _englishTts.dispose();
+    } catch (_) {}
     super.dispose();
   }
 }
@@ -584,6 +712,11 @@ final personalizationRepositoryProvider = Provider<PersonalizationRepository>((r
   return PersonalizationRepository(ref.watch(databaseProvider));
 });
 
+/// Bump this after saving a change the speech engines depend on but that
+/// lives outside a Riverpod settings object (profile language, speech
+/// condition). The home notifier listens and refreshes itself live.
+final speechConfigRevisionProvider = StateProvider<int>((ref) => 0);
+
 final homeCommunicationProvider =
     StateNotifierProvider<HomeCommunicationNotifier, HomeCommunicationState>((ref) {
   final notifier = HomeCommunicationNotifier(
@@ -596,6 +729,18 @@ final homeCommunicationProvider =
   // Keep notifier in sync when accessibility settings change
   ref.listen(accessibilitySettingsProvider, (_, next) {
     notifier.updateAccessibilitySettings(next);
+  });
+  // Live-apply speech settings: switching provider, saving an API key,
+  // or editing endpoint paths rebuilds the engines immediately — the
+  // app refreshes itself instead of asking for a restart.
+  ref.listen(ugHciLabSettingsProvider, (_, next) {
+    notifier.refreshConfiguration();
+  });
+  ref.listen(speechProfileProvider, (_, next) {
+    notifier.refreshConfiguration();
+  });
+  ref.listen(speechConfigRevisionProvider, (_, next) {
+    notifier.refreshConfiguration();
   });
   return notifier;
 });
