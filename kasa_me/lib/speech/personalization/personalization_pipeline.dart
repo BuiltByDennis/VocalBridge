@@ -1,6 +1,7 @@
 import 'safety_guard.dart';
 import 'number_normalization.dart';
 import 'personalization_repository.dart';
+import 'speech_behavior.dart';
 import '../safety/critical_safety_guard.dart';
 
 class PersonalizedTranscriptResult {
@@ -26,18 +27,49 @@ class PersonalizationPipeline {
   final CriticalSafetyGuard criticalSafetyGuard;
   final PersonalizationRepository? repository;
 
+  /// How recognition adapts to this person (their speech condition).
+  /// Set at construction; swap the pipeline to change behaviour.
+  final SpeechBehavior behavior;
+
   PersonalizationPipeline({
     PersonalizationSafetyGuard? guard,
     CriticalSafetyGuard? criticalGuard,
     this.repository,
+    SpeechBehavior? behavior,
   })  : safetyGuard = guard ?? PersonalizationSafetyGuard(),
-        criticalSafetyGuard = criticalGuard ?? CriticalSafetyGuard();
+        criticalSafetyGuard = criticalGuard ?? CriticalSafetyGuard(),
+        behavior = behavior ?? SpeechBehavior.fromKey(null);
 
   Future<void> initialize(String profileId) async {
     if (repository != null) {
-      final mappings = await repository!.loadActiveMappings(profileId: profileId);
+      final mappings = await repository!.loadActiveMappings(
+        profileId: profileId,
+        minFrequency: behavior.minMappingFrequency,
+      );
       safetyGuard.hydrateMappings(mappings);
     }
+  }
+
+  /// Persists one calibration attempt so the accuracy score can reflect
+  /// training (see HomeStatsNotifier). [verified] distinguishes an
+  /// ASR-checked attempt (English — [matched] is meaningful) from a
+  /// recorded-only sample (Twi — no recognition quota is spent checking).
+  Future<void> recordCalibrationResult({
+    required String profileId,
+    required String targetPhrase,
+    required String recognizedPhrase,
+    required bool verified,
+    required bool matched,
+    double? confidence,
+  }) async {
+    await repository?.logRecognitionEvent(
+      profileId: profileId,
+      rawTranscript: recognizedPhrase,
+      personalizedTranscript: targetPhrase,
+      confidence: confidence,
+      wasCorrected: verified && !matched,
+      context: verified ? 'calibration' : 'calibration_recorded',
+    );
   }
 
   Future<void> applyCorrection({
@@ -80,8 +112,18 @@ class PersonalizationPipeline {
       );
     }
 
-    final sanitized = NumberNormalizationService.normalizeGhanainCurrencyAndNumbers(rawTranscript);
-    final personalized = safetyGuard.applySafeReplacements(sanitized, baseConfidence: confidence ?? 0.8);
+    // Stammer profile: tidy disfluencies (repeated words / part-words)
+    // out FIRST, so corrections, translation and read-aloud all work on
+    // what the person meant, not on the stammer.
+    final fluencyCleaned = behavior.collapseRepetitions
+        ? DisfluencyNormalizer.collapse(rawTranscript)
+        : rawTranscript;
+    final sanitized = NumberNormalizationService.normalizeGhanainCurrencyAndNumbers(fluencyCleaned);
+    final personalized = safetyGuard.applySafeReplacements(
+      sanitized,
+      baseConfidence: confidence ?? 0.8,
+      confidenceGate: behavior.correctionConfidenceGate,
+    );
 
     final wasChanged = personalized != rawTranscript;
 

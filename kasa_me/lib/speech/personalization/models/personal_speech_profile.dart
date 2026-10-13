@@ -6,6 +6,11 @@ class PersonalSpeechProfile {
   final bool enablePersonalVocabulary;
   final bool enablePhraseBiasing;
   final bool enableCorrectionMemory;
+
+  /// Speech-condition key: typical | stammer | cerebralPalsy | stroke |
+  /// cleft. Drives [SpeechBehavior] — how recognition adapts to this
+  /// person. Stored on the profile (PersonalProfiles.speechCondition).
+  final String speechCondition;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +22,7 @@ class PersonalSpeechProfile {
     this.enablePersonalVocabulary = true,
     this.enablePhraseBiasing = true,
     this.enableCorrectionMemory = true,
+    this.speechCondition = 'typical',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -29,6 +35,7 @@ class PersonalSpeechProfile {
         'enablePersonalVocabulary': enablePersonalVocabulary,
         'enablePhraseBiasing': enablePhraseBiasing,
         'enableCorrectionMemory': enableCorrectionMemory,
+        'speechCondition': speechCondition,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
       };
@@ -42,6 +49,7 @@ class PersonalSpeechProfile {
       enablePersonalVocabulary: json['enablePersonalVocabulary'] as bool? ?? true,
       enablePhraseBiasing: json['enablePhraseBiasing'] as bool? ?? true,
       enableCorrectionMemory: json['enableCorrectionMemory'] as bool? ?? true,
+      speechCondition: json['speechCondition'] as String? ?? 'typical',
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );

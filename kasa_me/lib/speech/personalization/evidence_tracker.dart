@@ -18,6 +18,7 @@ class EvidenceTracker {
   bool shouldApplyReplacement({
     required int frequency,
     double? confidence,
+    double confidenceGate = 0.8,
   }) {
     final tier = getTier(frequency);
 
@@ -26,9 +27,12 @@ class EvidenceTracker {
         // Tentative tier matches are not auto-applied.
         return false;
       case FrequencyTier.probable:
-        // Probable tier matches are auto-applied if confidence is low/medium (< 0.8)
-        // or if confidence is unavailable.
-        return confidence == null || confidence < 0.8;
+        // Probable tier matches are auto-applied if confidence is below
+        // [confidenceGate] or if confidence is unavailable. The gate
+        // comes from the person's SpeechBehavior: for atypical speech
+        // the recognizer's confidence is unreliable, so their profile
+        // raises the gate and their learned patterns win more often.
+        return confidence == null || confidence < confidenceGate;
       case FrequencyTier.learned:
         // Learned tier matches are always applied.
         return true;
