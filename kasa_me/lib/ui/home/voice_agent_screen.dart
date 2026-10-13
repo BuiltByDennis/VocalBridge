@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import 'home_communication_notifier.dart';
@@ -15,6 +16,7 @@ class VoiceAgentScreen extends ConsumerStatefulWidget {
 
 class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
     with SingleTickerProviderStateMixin {
+  bool _isHC = false;
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnim;
 
@@ -40,6 +42,7 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
 
   @override
   Widget build(BuildContext context) {
+    _isHC = ref.watch(accessibilitySettingsProvider).highContrastMode;
     final state = ref.watch(homeCommunicationProvider);
     final notifier = ref.read(homeCommunicationProvider.notifier);
     final isListening = state.engineState == UiEngineState.listening;
@@ -78,7 +81,7 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration: BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: _isHC)),
         child: SafeArea(
           child: Column(
             children: [
@@ -137,7 +140,7 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
                         height: 1.2,
                         fontSize: 24,
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.pageTextSecondary(highContrast: _isHC),
                       ),
                 ),
               ),
@@ -195,23 +198,25 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
   }
 
   Widget _buildActionChip(String label, IconData icon, VoidCallback? onTap) {
+    final chipText = AppTheme.pageTextSecondary(highContrast: _isHC);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.6),
+          color: _isHC ? AppTheme.hcSurface : Colors.white.withOpacity(0.6),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white, width: 1.5),
+          border: Border.all(
+              color: _isHC ? AppTheme.hcAccent : Colors.white, width: 1.5),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: AppTheme.textSecondary),
+            Icon(icon, size: 16, color: chipText),
             const SizedBox(width: 6),
             Text(label,
-                style: const TextStyle(
-                    color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+                style: TextStyle(
+                    color: chipText, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -249,9 +254,12 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Powered by Sherpa-ONNX',
+                Text(
+                    state.providerLabel == 'Offline'
+                        ? 'On-device engine'
+                        : 'UG HCI Lab API',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                Text('Offline Mode',
+                Text(state.providerLabel == 'Offline' ? 'Offline Mode' : 'Lab API',
                     style: TextStyle(
                         fontSize: 12,
                         color: Colors.green.shade600,

@@ -545,6 +545,8 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
               if (intended.isNotEmpty && intended != word) {
                 final msg = _messages[messageIndex];
                 final newPersonalized = await notifier.applyWordCorrection(word, intended, msg.raw);
+                // A correction is training: nudge stats (and engines) to refresh.
+                ref.read(speechConfigRevisionProvider.notifier).state++;
                 
                 if (mounted) {
                   setState(() {

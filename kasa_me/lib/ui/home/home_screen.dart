@@ -73,7 +73,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(flex: 2),
-                  if (!isSimple) _buildOverviewCard(context, stats),
+                  if (!isSimple) _buildOverviewCard(context, stats, isHC),
                   const SizedBox(height: 100),
                 ],
               ),
@@ -82,7 +82,7 @@ class HomeScreen extends ConsumerWidget {
                 alignment: Alignment.bottomCenter,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 24.0, left: 24.0, right: 24.0),
-                  child: _buildBottomNav(context, isSimple),
+                  child: _buildBottomNav(context, isSimple, isHC),
                 ),
               ),
             ],
@@ -135,7 +135,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildOverviewCard(BuildContext context, HomeStatsState stats) {
+  Widget _buildOverviewCard(BuildContext context, HomeStatsState stats, bool isHC) {
     final accuracy = stats.accuracyScore.clamp(0.0, 100.0);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -210,7 +210,9 @@ class HomeScreen extends ConsumerWidget {
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodyLarge
-                                    ?.copyWith(color: AppTheme.textSecondary),
+                                    ?.copyWith(
+                                        color: AppTheme.pageTextSecondary(
+                                            highContrast: isHC)),
                               ),
                             ],
                           ),
@@ -271,7 +273,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildBottomNav(BuildContext context, [bool isSimple = false]) {
+  Widget _buildBottomNav(BuildContext context, [bool isSimple = false, bool isHC = false]) {
     return Container(
       height: 70,
       decoration: BoxDecoration(
@@ -299,7 +301,7 @@ class HomeScreen extends ConsumerWidget {
           // Phrasebook — always visible
           GestureDetector(
             onTap: () => context.push('/phrasebook'),
-            child: const Icon(Icons.favorite_border, color: AppTheme.textSecondary),
+            child: Icon(Icons.favorite_border, color: AppTheme.pageTextSecondary(highContrast: isHC)),
           ),
           // Voice Agent — always visible
           GestureDetector(
@@ -319,13 +321,13 @@ class HomeScreen extends ConsumerWidget {
           if (!isSimple)
             GestureDetector(
               onTap: () => context.push('/history'),
-              child: const Icon(Icons.history, color: AppTheme.textSecondary),
+              child: Icon(Icons.history, color: AppTheme.pageTextSecondary(highContrast: isHC)),
             ),
           // Settings — hidden in simplified mode
           if (!isSimple)
             GestureDetector(
               onTap: () => context.push('/settings'),
-              child: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
+              child: Icon(Icons.settings_outlined, color: AppTheme.pageTextSecondary(highContrast: isHC)),
             ),
         ],
       ),
