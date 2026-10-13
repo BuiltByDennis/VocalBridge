@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:drift/drift.dart' hide Column;
+import 'package:go_router/go_router.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../speech/personalization/personalization_repository.dart';
+import '../../speech/personalization/speech_behavior.dart';
+import '../../speech/personalization/speech_profile_settings.dart';
 import '../../storage/database/app_database.dart';
-import '../home/home_communication_notifier.dart' show databaseProvider;
+import '../home/home_communication_notifier.dart'
+    show databaseProvider, speechConfigRevisionProvider;
 import '../theme/app_theme.dart';
 
 class PersonalizationSettingsScreen extends ConsumerStatefulWidget {
@@ -16,9 +22,19 @@ class PersonalizationSettingsScreen extends ConsumerStatefulWidget {
 
 class _PersonalizationSettingsScreenState
     extends ConsumerState<PersonalizationSettingsScreen> {
+  bool _isHC = false;
+
   PersonalProfileEntity? _profile;
   List<WordCorrectionEntity> _corrections = [];
+  int _phraseCorrectionCount = 0;
+  int _calibrationAttempts = 0;
+  int _calibrationSamples = 0;
   bool _loading = true;
+
+  String _conditionKey = 'typical';
+
+  SpeechCondition get _condition => SpeechCondition.fromKey(_conditionKey);
+  SpeechBehavior get _behavior => SpeechBehavior.forCondition(_condition);
 
   @override
   void initState() {
@@ -33,13 +49,43 @@ class _PersonalizationSettingsScreenState
 
     final profile = await repo.getActiveProfile('default_user');
     final corrections = await personRepo.getWordCorrections('default_user');
+    final phraseCorrections = await db.select(db.phraseCorrections).get();
+    final calibEvents = await (db.select(db.recognitionEvents)
+          ..where((t) => t.context.like('calibration%')))
+        .get();
 
     if (mounted) {
       setState(() {
         _profile = profile;
         _corrections = corrections;
+        _phraseCorrectionCount = phraseCorrections.length;
+        _calibrationAttempts =
+            calibEvents.where((e) => e.context == 'calibration').length;
+        _calibrationSamples =
+            calibEvents.where((e) => e.context == 'calibration_recorded').length;
         _loading = false;
       });
+    }
+  }
+
+  /// The heart of per-person training: choosing a speech profile changes
+  /// how recognition behaves for this user (see SpeechBehavior), applies
+  /// the matching listening presets, and refreshes the home engines live.
+  Future<void> _setCondition(SpeechCondition condition) async {
+    if (condition == _condition) return;
+    await ref.read(speechProfileProvider.notifier).setCondition(condition);
+    final behavior = SpeechBehavior.forCondition(condition);
+    final a11y = ref.read(accessibilitySettingsProvider.notifier);
+    await a11y.setVadSensitivity(behavior.vadSensitivity);
+    await a11y.setMicGain(behavior.micGain);
+    ref.read(speechConfigRevisionProvider.notifier).state++;
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Speech profile set to ${condition.label}. Kasa Me has adapted to you.')),
+      );
     }
   }
 
@@ -61,9 +107,12 @@ class _PersonalizationSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    _isHC = ref.watch(accessibilitySettingsProvider).highContrastMode;
+    _conditionKey = ref.watch(speechProfileProvider).conditionKey;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration:
+            BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: _isHC)),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,6 +146,14 @@ class _PersonalizationSettingsScreenState
                   child: ListView(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
                     children: [
+                      _sectionHeader('Your Speech Profile'),
+                      ...SpeechCondition.values.map(_conditionTile),
+                      const SizedBox(height: 8),
+                      _whatChangesCard(),
+                      const SizedBox(height: 20),
+                      _sectionHeader('Your Training'),
+                      _trainingSummaryCard(context),
+                      const SizedBox(height: 20),
                       _sectionHeader('Features'),
                       _switchTile(
                         title: 'Personal Vocabulary',
@@ -162,15 +219,134 @@ class _PersonalizationSettingsScreenState
     );
   }
 
+  Widget _conditionTile(SpeechCondition condition) {
+    final selected = condition == _condition;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(selected ? 0.95 : 0.7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: selected ? AppTheme.primaryPurple : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: RadioListTile<SpeechCondition>(
+        value: condition,
+        groupValue: _condition,
+        onChanged: (v) => v != null ? _setCondition(v) : null,
+        title: Text(condition.label,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+        subtitle: Text(condition.description,
+            style: const TextStyle(fontSize: 12)),
+        activeColor: AppTheme.primaryPurple,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    );
+  }
+
+  Widget _whatChangesCard() {
+    final b = _behavior;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryPurple.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('What changes for you',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 8),
+          ...b.changes.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('•  '),
+                    Expanded(
+                        child: Text(c,
+                            style: const TextStyle(fontSize: 13))),
+                  ],
+                ),
+              )),
+          const SizedBox(height: 4),
+          Text(
+            'Listening presets applied: microphone gain ×${b.micGain.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '')}, pause patience ${_patienceLabel(b.vadSensitivity)}. Fine-tune them any time in Accessibility settings.',
+            style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.pageTextSecondary(highContrast: _isHC)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _patienceLabel(double vad) =>
+      vad <= 0.3 ? 'high' : (vad <= 0.45 ? 'medium-high' : 'standard');
+
+  Widget _trainingSummaryCard(BuildContext context) {
+    final calibrated = _profile?.isCalibrated ?? false;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _summaryRow('Voice calibration',
+              calibrated ? 'Completed' : 'Not done yet'),
+          _summaryRow('Calibration attempts checked', '$_calibrationAttempts'),
+          _summaryRow('Twi voice samples recorded', '$_calibrationSamples'),
+          _summaryRow('Learned word corrections', '${_corrections.length}'),
+          _summaryRow('Learned phrase corrections', '$_phraseCorrectionCount'),
+          const SizedBox(height: 8),
+          const Text(
+            'All of this training stays on this phone. Your Accuracy Score on the home screen is calculated from these training sessions and how well recognition performs for you afterwards.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => context.push('/calibration'),
+              icon: const Icon(Icons.school_outlined, size: 18),
+              label: const Text('Open Voice Calibration'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 13)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
   Widget _sectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10, top: 4),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: AppTheme.textSecondary,
+          color: AppTheme.pageTextSecondary(highContrast: _isHC),
           letterSpacing: 1.2,
         ),
       ),

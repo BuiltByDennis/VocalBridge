@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import '../theme/app_theme.dart';
 
-class WelcomeScreen extends StatefulWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
 
   @override
-  State<WelcomeScreen> createState() => _WelcomeScreenState();
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen>
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _fadeAnim;
@@ -36,9 +38,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isHC =
+        ref.watch(accessibilitySettingsProvider).highContrastMode;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration: BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: isHC)),
         child: SafeArea(
           child: FadeTransition(
             opacity: _fadeAnim,
@@ -80,7 +84,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     Text(
                       'On-device, offline-first assistive communication for people with atypical speech — in English and Ghanaian languages.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.pageTextSecondary(highContrast: isHC),
                         height: 1.6,
                       ),
                     ),
@@ -137,10 +141,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     Center(
                       child: TextButton(
                         onPressed: () => context.go('/home'),
-                        child: const Text(
+                        child: Text(
                           'Already set up? Go to app →',
                           style: TextStyle(
-                            color: AppTheme.textSecondary,
+                            color: AppTheme.pageTextSecondary(highContrast: isHC),
                             fontSize: 14,
                           ),
                         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
+import '../../core/accessibility/accessibility_settings.dart';
 import '../../storage/database/app_database.dart';
 import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/tts_engine_factory.dart';
@@ -26,6 +27,9 @@ class PhrasebookScreen extends ConsumerStatefulWidget {
 }
 
 class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
+
+  bool get _isHC =>
+      ref.watch(accessibilitySettingsProvider).highContrastMode;
   late TtsEngine _tts;
   final _searchController = TextEditingController();
   String _searchQuery = '';
@@ -63,7 +67,7 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration: BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: _isHC)),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,9 +128,11 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
                             .toList();
 
                     if (filtered.isEmpty) {
-                      return const Center(
+                      return Center(
                           child: Text('No phrases found.',
-                              style: TextStyle(color: AppTheme.textSecondary)));
+                              style: TextStyle(
+                                  color: AppTheme.pageTextSecondary(
+                                      highContrast: _isHC))));
                     }
 
                     return ListView.builder(

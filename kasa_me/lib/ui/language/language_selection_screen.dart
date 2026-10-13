@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import '../../profile/repositories/profile_repository.dart';
-import '../../ui/home/home_communication_notifier.dart' show databaseProvider;
+import '../../ui/home/home_communication_notifier.dart'
+    show databaseProvider, speechConfigRevisionProvider;
 import '../theme/app_theme.dart';
 
 // Languages available in the app — mark unsupported ones as comingSoon
@@ -41,6 +43,9 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
       profileId: 'default_user',
       preferredLanguage: _selected,
     );
+    // The home engines rebuild themselves for the new language — the
+    // app refreshes in place, no restart needed.
+    ref.read(speechConfigRevisionProvider.notifier).state++;
 
     if (!mounted) return;
     setState(() => _saving = false);
@@ -51,9 +56,11 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
 
   @override
   Widget build(BuildContext context) {
+    final isHC =
+        ref.watch(accessibilitySettingsProvider).highContrastMode;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration: BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: isHC)),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,7 +80,7 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
                     Text(
                       'Kasa Me will be optimised for your selected language. More languages coming soon.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppTheme.textSecondary,
+                        color: AppTheme.pageTextSecondary(highContrast: isHC),
                         height: 1.5,
                       ),
                     ),

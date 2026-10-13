@@ -8,9 +8,17 @@ import '../../speech/calibration/calibration_service.dart';
 import '../../speech/personalization/personalization_pipeline.dart';
 import '../../profile/repositories/profile_repository.dart';
 import '../../core/permissions/permission_service.dart';
+import '../home/home_communication_notifier.dart'
+    show personalizationRepositoryProvider, speechConfigRevisionProvider;
 
 
-final personalizationPipelineProvider = Provider<PersonalizationPipeline>((ref) => PersonalizationPipeline());
+/// The calibration pipeline is backed by the real personalization
+/// repository — corrections seeded here are SAVED and keep working in
+/// everyday recognition. (A pipeline without the repository would learn
+/// into thin air and forget everything when the wizard closes.)
+final personalizationPipelineProvider = Provider<PersonalizationPipeline>(
+    (ref) => PersonalizationPipeline(
+        repository: ref.watch(personalizationRepositoryProvider)));
 
 final calibrationServiceProvider = Provider<CalibrationService>((ref) {
   final service = CalibrationService(
@@ -36,8 +44,14 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
   int _currentStepIndex = 0;
   bool _isRecording = false;
   String? _lastRecognized;
+  bool _lastWasVerified = true;
   bool _isProcessing = false;
-  
+  String _language = 'en_GH';
+
+  List<String> get _phrases =>
+      CalibrationService.phrasesForLanguage(_language);
+  bool get _isTwi => _language == 'twi';
+
   StreamSubscription? _resultSub;
 
   @override
@@ -46,12 +60,14 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
     
     // Defer listening to the stream until after the first frame to safely use ref.read
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(calibrationServiceProvider).setLanguage(_language);
       _resultSub = ref.read(calibrationServiceProvider).onResult.listen((result) {
         if (!mounted) return;
         setState(() {
           _isRecording = false;
           _isProcessing = false;
           _lastRecognized = result.recognizedPhrase;
+          _lastWasVerified = result.wasVerified;
         });
         
         // Briefly show result then move to next
@@ -70,7 +86,7 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
   }
 
   void _moveToNextStep() async {
-    if (_currentStepIndex < CalibrationService.calibrationPhrases.length - 1) {
+    if (_currentStepIndex < _phrases.length - 1) {
       setState(() {
         _currentStepIndex++;
         _lastRecognized = null;
@@ -82,10 +98,23 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
         profileId: 'default_user',
         isCalibrated: true,
       );
+      // Nudge the home screen to rebuild its engines/pipeline with the
+      // freshly trained data — no app restart needed.
+      ref.read(speechConfigRevisionProvider.notifier).state++;
 
       if (!mounted) return;
       context.go('/home');
     }
+  }
+
+  void _setLanguage(String code) {
+    if (code == _language || _isRecording) return;
+    setState(() {
+      _language = code;
+      _currentStepIndex = 0;
+      _lastRecognized = null;
+    });
+    ref.read(calibrationServiceProvider).setLanguage(code);
   }
 
   void _startRecording() async {
@@ -104,7 +133,7 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
       _isRecording = true;
       _lastRecognized = null;
     });
-    final target = CalibrationService.calibrationPhrases[_currentStepIndex];
+    final target = _phrases[_currentStepIndex];
     try {
       await ref.read(calibrationServiceProvider).startRecordingForPhrase(target);
     } catch (e) {
@@ -141,8 +170,8 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalSteps = CalibrationService.calibrationPhrases.length;
-    final currentPhrase = CalibrationService.calibrationPhrases[_currentStepIndex];
+    final totalSteps = _phrases.length;
+    final currentPhrase = _phrases[_currentStepIndex];
 
     return Scaffold(
       appBar: AppBar(
@@ -155,6 +184,40 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Language toggle — English phrases are checked by the
+              // on-device recognizer; Twi phrases are recorded as voice
+              // samples (no Lab recognition quota is spent).
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ChoiceChip(
+                    label: const Text('English'),
+                    selected: !_isTwi,
+                    onSelected: (_) => _setLanguage('en_GH'),
+                  ),
+                  const SizedBox(width: 12),
+                  ChoiceChip(
+                    label: const Text('Twi'),
+                    selected: _isTwi,
+                    onSelected: (_) => _setLanguage('twi'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_isTwi)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Twi calibration saves your voice samples on this phone and teaches Kasa Me your Twi phrases. It does not use your UG HCI Lab recognition quota.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              if (_isTwi) const SizedBox(height: 16),
               // Progress Indicator
               Text(
                 'Step ${_currentStepIndex + 1} of $totalSteps',
@@ -204,6 +267,25 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
               // Result display
               if (_isProcessing)
                 const Center(child: CircularProgressIndicator())
+              else if (_lastRecognized != null && !_lastWasVerified)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.secondaryContainer.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Voice sample saved. Kasa Me is learning how you say this phrase.',
+                        style: theme.textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      const Icon(Icons.check_circle, color: Colors.green),
+                    ],
+                  ),
+                )
               else if (_lastRecognized != null)
                 Container(
                   padding: const EdgeInsets.all(16),

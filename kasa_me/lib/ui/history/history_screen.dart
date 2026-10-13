@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/accessibility/accessibility_settings.dart';
 import '../../speech/diagnostics/repositories/diagnostics_repository.dart';
 import '../../storage/database/app_database.dart';
 import '../home/home_communication_notifier.dart' show databaseProvider;
@@ -10,9 +11,11 @@ class HistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isHC =
+        ref.watch(accessibilitySettingsProvider).highContrastMode;
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.mainBackgroundGradient),
+        decoration: BoxDecoration(gradient: AppTheme.backgroundGradient(highContrast: isHC)),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,12 +73,13 @@ class HistoryScreen extends ConsumerWidget {
                     }
                     final events = snapshot.data!;
                     if (events.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
                           'No speech history yet.\nStart speaking to see your transcripts here.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 15),
+                              color: AppTheme.pageTextSecondary(highContrast: isHC),
+                              fontSize: 15),
                         ),
                       );
                     }
