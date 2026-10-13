@@ -12,12 +12,19 @@ import 'translation_service.dart';
 /// 2. **Near-miss phrases**: a small edit distance or the same words in a
 ///    different order still finds the curated phrase (recognition is
 ///    imperfect, especially for atypical speech).
-/// 3. **Word-for-word gloss**: if *every* word of the input is in the
+/// 3. **Contained phrases**: a curated phrase appearing inside a longer
+///    utterance still matches ("me pɛ nsuo paa" → the water phrase —
+///    intensifiers and extra words around a known phrase are normal in
+///    real speech, and recognizers join/split Twi words freely, so a
+///    space-insensitive check runs too).
+/// 4. **Word-for-word gloss**: if *every* word of the input is in the
 ///    vocabulary below, the words' dictionary glosses are joined. This
 ///    makes simple new sentences understandable ("me pɛ aduane pa" →
 ///    "I want food good") without pretending to be grammar-aware MT.
-///    If even one word is unknown, the result is `null` — no guessing.
-/// 4. Otherwise `null`, and the UI honestly says no gloss is available.
+/// 5. **Partial gloss**: when most words (≥60%, at least 2) are known,
+///    known words are glossed and unknown words are carried through
+///    *unchanged* — visible as untranslated, never invented.
+/// 6. Otherwise `null`, and the UI honestly says no gloss is available.
 ///
 /// When the UG HCI Lab API offers translation, a [LabTranslationService]
 /// can implement [TranslationService] and take over this pair without any
@@ -27,6 +34,21 @@ class DictionaryTranslationService implements TranslationService {
   late final Map<String, String> _enToTwi = _buildPhraseMap(twiSide: false);
   late final Map<String, String> _twiWordToEn = _buildWordMap(twiSide: true);
   late final Map<String, String> _enWordToTwi = _buildWordMap(twiSide: false);
+
+  /// Space-stripped phrase keys: Twi recognizers freely join and split
+  /// words ("mepɛ nsuo", "me pɛnsuo"), so phrase identity must not
+  /// depend on where the spaces landed.
+  late final Map<String, String> _twiToEnStripped = _stripKeys(_twiToEn);
+  late final Map<String, String> _enToTwiStripped = _stripKeys(_enToTwi);
+
+  static Map<String, String> _stripKeys(Map<String, String> m) => {
+        for (final e in m.entries) e.key.replaceAll(' ', ''): e.value,
+      };
+
+  /// Pure intensifiers/fillers that may surround a phrase without
+  /// changing which phrase it is.
+  static const Set<String> _twiFillers = {'paa', 'koraa'};
+  static const Set<String> _enFillers = {'um', 'uh', 'er'};
 
   /// (twi word, english word) vocabulary for the word-for-word gloss.
   /// Multi-word values are fine; an empty English value means the word
@@ -58,6 +80,18 @@ class DictionaryTranslationService implements TranslationService {
     ('no', 'the'), ('na', 'and'), ('anaa', 'or'), ('nso', 'also'),
     ('yiye', 'well'), ('ogya', 'fire'), ('mmoa', 'help'),
     ('ho', 'body'), ('ase', 'understanding'),
+    // Function words and everyday vocabulary — without these, ordinary
+    // English sentences ("please call my mother", "I need to see the
+    // doctor") could not be glossed at all. An empty value means the
+    // word carries no separate gloss in that direction (e.g. the
+    // infinitive "to" is just verb order in Twi).
+    ('me', 'me'), ('mepa wo kyɛw', 'please'), ('', 'to'),
+    ('yɛ', 'am'), ('yɛ', 'are'), ('mu', 'in'), ('bi', 'some'),
+    ('tumi', 'can'), ('paa', 'very'), ('dodo', 'much'), ('saa', 'that'),
+    ('ka biom', 'repeat'), ('awɔ', 'cold'), ('berɛ', 'time'),
+    ('no', 'it'), ('firi', 'from'), ('seesei', 'now'),
+    ('daabi', 'no'), ('twe', 'withdraw'), ('kanea', 'light'),
+    ('bank', 'bank'), ('station', 'station'),
   ];
 
   static Map<String, String> _buildPhraseMap({required bool twiSide}) {
@@ -112,18 +146,69 @@ class DictionaryTranslationService implements TranslationService {
     if (key.isEmpty) return null;
 
     final phrases = from == 'twi' ? _twiToEn : _enToTwi;
+    final stripped = from == 'twi' ? _twiToEnStripped : _enToTwiStripped;
     final words = from == 'twi' ? _twiWordToEn : _enWordToTwi;
+    final fillers = from == 'twi' ? _twiFillers : _enFillers;
 
     // 1. Exact curated phrase.
     final exact = phrases[key];
     if (exact != null) return exact;
 
-    // 2. Near-miss curated phrase (small typo / word order shuffle).
+    // 2. Space-insensitive exact (recognizer joined/split the words).
+    final squashed = stripped[key.replaceAll(' ', '')];
+    if (squashed != null) return squashed;
+
+    // 3. A curated phrase contained in a longer utterance.
+    final contained = _containedPhrase(key, phrases);
+    if (contained != null) return contained;
+
+    // 4. Drop pure fillers/intensifiers and retry the phrase layers.
+    final tokens = key.split(' ');
+    final core = tokens.where((t) => !fillers.contains(t)).join(' ');
+    if (core.isNotEmpty && core != key) {
+      final retried = phrases[core] ??
+          stripped[core.replaceAll(' ', '')] ??
+          _containedPhrase(core, phrases) ??
+          _fuzzyPhraseMatch(core, phrases);
+      if (retried != null) return retried;
+    }
+
+    // 5. Near-miss curated phrase (small typo / word order shuffle).
     final fuzzy = _fuzzyPhraseMatch(key, phrases);
     if (fuzzy != null) return fuzzy;
 
-    // 3. Word-for-word gloss — only when EVERY word is known.
-    return _wordGloss(key, words);
+    // 6. Word-for-word gloss — full coverage first, then partial.
+    return _wordGloss(key, words) ?? _partialGloss(key, words);
+  }
+
+  /// Finds a curated multi-word phrase appearing as a contiguous run of
+  /// tokens inside [key] — longest phrases win, so "call the doctor"
+  /// beats "the doctor" when both are present.
+  String? _containedPhrase(String key, Map<String, String> phrases) {
+    final tokens = key.split(' ');
+    if (tokens.length < 3) return null;
+    final candidates = phrases.keys
+        .where((k) => k.contains(' '))
+        .toList()
+      ..sort((a, b) {
+        final byTokens = b.split(' ').length.compareTo(a.split(' ').length);
+        return byTokens != 0 ? byTokens : b.length.compareTo(a.length);
+      });
+    for (final candidate in candidates) {
+      final ct = candidate.split(' ');
+      if (ct.length >= tokens.length) continue;
+      for (var i = 0; i + ct.length <= tokens.length; i++) {
+        var match = true;
+        for (var j = 0; j < ct.length; j++) {
+          if (tokens[i + j] != ct[j]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) return phrases[candidate];
+      }
+    }
+    return null;
   }
 
   String? _fuzzyPhraseMatch(String key, Map<String, String> phrases) {
@@ -146,8 +231,13 @@ class DictionaryTranslationService implements TranslationService {
         best = phrases[candidate];
       }
     }
-    // Conservative: ~1 wrong character in 7 or better.
-    return bestScore >= 0.86 ? best : null;
+    // Fuzzy matching is a backstop, kept strict on purpose: in a care
+    // setting, confusing one content word for another ("my HEAD hurts"
+    // heard as the "my HAND hurts" phrase) is dangerous, while falling
+    // through to the word gloss merely shows an untranslated word.
+    // Longer strings may drift more, so the bar relaxes slightly.
+    final threshold = key.length >= 16 ? 0.83 : 0.87;
+    return bestScore >= threshold ? best : null;
   }
 
   String? _wordGloss(String key, Map<String, String> words) {
@@ -160,6 +250,29 @@ class DictionaryTranslationService implements TranslationService {
       if (gloss.isNotEmpty) out.add(gloss);
     }
     if (out.isEmpty) return null;
+    final joined = out.join(' ');
+    return joined[0].toUpperCase() + joined.substring(1);
+  }
+
+  /// Glosses the words it knows and carries unknown words through
+  /// unchanged, when at least 60% of the words (and at least 2) are
+  /// known. An unknown word stays visibly untranslated — the reader
+  /// can tell exactly which part the dictionary could not cover.
+  String? _partialGloss(String key, Map<String, String> words) {
+    final tokens = key.split(' ');
+    if (tokens.length < 3) return null;
+    var known = 0;
+    final out = <String>[];
+    for (final token in tokens) {
+      final gloss = words[token];
+      if (gloss != null) {
+        known++;
+        if (gloss.isNotEmpty) out.add(gloss);
+      } else {
+        out.add(token);
+      }
+    }
+    if (known < 2 || known / tokens.length < 0.6) return null;
     final joined = out.join(' ');
     return joined[0].toUpperCase() + joined.substring(1);
   }

@@ -31,7 +31,10 @@ class AppDatabase extends _$AppDatabase {
   /// [TwiPhraseData] list (the same source as the translation glossary),
   /// so every phrasebook phrase is guaranteed to have a translation.
   Future<void> _seedTwiPhrases(int profileId) async {
+    final seen = <String>{};
     for (final p in TwiPhraseData.phrases) {
+      // A Twi phrase with two English renderings is ONE phrasebook row.
+      if (!seen.add(p.twi)) continue;
       await into(phrasebookEntries).insert(
         PhrasebookEntriesCompanion.insert(
           profileId: profileId,

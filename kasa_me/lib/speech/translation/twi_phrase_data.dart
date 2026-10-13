@@ -43,6 +43,7 @@ class TwiPhraseData {
     TwiPhrase('wo ho te sɛn', 'How are you?', category: 'Greetings', aliases: ['wo ho te sɛn?'], calibration: true),
     TwiPhrase('me ho yɛ', 'I am fine', category: 'Greetings', calibration: true),
     TwiPhrase('me da w\u2019ase', 'Thank you', category: 'Greetings', aliases: ['me da wase', 'me da ase'], calibration: true),
+    TwiPhrase('me da w\u2019ase paa', 'Thank you very much', category: 'Greetings'),
     TwiPhrase('mepa wo kyɛw', 'Please / excuse me', category: 'Greetings', aliases: ['mepa wo kyew']),
     TwiPhrase('nante yie', 'Goodbye', category: 'Greetings'),
     TwiPhrase('yɛbɛhyia bio', 'See you again', category: 'Greetings'),
@@ -56,6 +57,7 @@ class TwiPhraseData {
     TwiPhrase('me pɛ aduro', 'I need medicine', category: 'Healthcare', calibration: true),
     TwiPhrase('me yare', 'I am sick', category: 'Healthcare'),
     TwiPhrase('me ho yɛ me hye', 'I feel feverish', category: 'Healthcare', calibration: true),
+    TwiPhrase('me pɛ hu dokota', 'I need to see the doctor', category: 'Healthcare'),
     TwiPhrase('bisa dokota', 'Ask the doctor', category: 'Healthcare'),
     TwiPhrase('dokota no reba', 'The doctor is coming', category: 'Healthcare'),
     TwiPhrase('mɛfrɛ dokota', 'I will call the doctor', category: 'Healthcare', aliases: ['mefrɛ dokota']),
@@ -63,6 +65,7 @@ class TwiPhraseData {
     TwiPhrase('yareɛ', 'Sickness', category: 'Healthcare', aliases: ['yaree']),
 
     // ── Pain & body ───────────────────────────────────────────────────
+    TwiPhrase('me ho yɛ me ya', 'I am in pain', category: 'Pain & Body'),
     TwiPhrase('me tiri yɛ me ya', 'I have a headache', category: 'Pain & Body', calibration: true),
     TwiPhrase('me yafunu yɛ me ya', 'I have a stomach ache', category: 'Pain & Body'),
     TwiPhrase('me akoma yɛ me ya', 'I have chest pain', category: 'Pain & Body'),
@@ -83,17 +86,20 @@ class TwiPhraseData {
     TwiPhrase('me pɛ kɔ aguarebea', 'I need the bathroom', category: 'Daily Needs'),
     TwiPhrase('me pɛ tena ase', 'I want to sit down', category: 'Daily Needs'),
     TwiPhrase('boa me ma mensɔre', 'Help me get up', category: 'Daily Needs'),
+    TwiPhrase('sɔ kanea no', 'Turn on the light', category: 'Daily Needs'),
 
     // ── Feelings ──────────────────────────────────────────────────────
     TwiPhrase('me suro', 'I am afraid', category: 'Feelings'),
     TwiPhrase('me werɛ aho', 'I am sad', category: 'Feelings'),
     TwiPhrase('me ani gye', 'I am happy', category: 'Feelings'),
     TwiPhrase('me ho atɔ me', 'I feel better', category: 'Feelings'),
+    TwiPhrase('awɔ de me', 'I feel cold', category: 'Feelings'),
     TwiPhrase('ɛyɛ', 'It is okay', category: 'Feelings', aliases: ['eyɛ']),
 
     // ── Questions & understanding ─────────────────────────────────────
     TwiPhrase('me nte aseɛ', 'I don\u2019t understand', category: 'Questions', aliases: ['me nte asee', 'me nte ase'], calibration: true),
     TwiPhrase('ka biom', 'Please say that again', category: 'Questions', calibration: true),
+    TwiPhrase('ka biom', 'Can you repeat that', category: 'Questions'),
     TwiPhrase('wo din de sɛn', 'What is your name?', category: 'Questions', aliases: ['wo din de sɛn?']),
     TwiPhrase('wopɛ dɛn', 'What do you want?', category: 'Questions', aliases: ['wopɛ dɛn?']),
     TwiPhrase('wobɛba da bɛn', 'When will you come?', category: 'Questions', aliases: ['wobɛba da bɛn?']),
@@ -111,6 +117,9 @@ class TwiPhraseData {
     TwiPhrase('me wɔ sika', 'I have money', category: 'Money & Market'),
     TwiPhrase('sika no sua', 'The money is not enough', category: 'Money & Market'),
     TwiPhrase('me pɛ tɔ aduane', 'I want to buy food', category: 'Money & Market'),
+    TwiPhrase('bank no wɔ he', 'Where is the bank?', category: 'Money & Market'),
+    TwiPhrase('me pɛ twe sika', 'I want to withdraw money', category: 'Money & Market'),
+    TwiPhrase('station no wɔ he', 'Where is the station?', category: 'Travel'),
 
     // ── Emergency ─────────────────────────────────────────────────────
     TwiPhrase('boa me', 'Help me', category: 'Emergency', calibration: true),
