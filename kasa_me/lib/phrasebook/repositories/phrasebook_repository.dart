@@ -18,6 +18,14 @@ class PhrasebookRepository {
     return query.watch();
   }
 
+  /// All phrases, most-used first. The caller filters (e.g. by language
+  /// category) and takes what it needs.
+  Stream<List<PhrasebookEntry>> watchAllPhrases() {
+    final query = _db.select(_db.phrasebookEntries)
+      ..orderBy([(t) => OrderingTerm(expression: t.usageCount, mode: OrderingMode.desc)]);
+    return query.watch();
+  }
+
   Future<void> incrementUsage(int id) async {
     final phrase = await (_db.select(_db.phrasebookEntries)..where((t) => t.id.equals(id))).getSingleOrNull();
     if (phrase != null) {

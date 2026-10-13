@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+import '../../speech/translation/twi_phrase_data.dart';
 import 'tables.dart';
 
 part 'app_database.g.dart';
@@ -24,7 +25,22 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
+
+  /// Seeds the curated Twi phrasebook for [profileId] from the shared
+  /// [TwiPhraseData] list (the same source as the translation glossary),
+  /// so every phrasebook phrase is guaranteed to have a translation.
+  Future<void> _seedTwiPhrases(int profileId) async {
+    for (final p in TwiPhraseData.phrases) {
+      await into(phrasebookEntries).insert(
+        PhrasebookEntriesCompanion.insert(
+          profileId: profileId,
+          phrase: p.twi,
+          category: Value('Twi · ${p.category}'),
+        ),
+      );
+    }
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -59,6 +75,9 @@ class AppDatabase extends _$AppDatabase {
               ),
             );
           }
+
+          // Seed the Twi phrasebook (same install gets both languages).
+          await _seedTwiPhrases(defaultProfileId);
         },
         onUpgrade: (m, from, to) async {
           if (from == 1) {
@@ -68,6 +87,19 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(wordCorrections);
             await m.createTable(phraseCorrections);
             await m.createTable(recognitionEvents);
+          }
+          if (from < 3) {
+            // Give existing installs the Twi phrasebook too (once).
+            final allProfiles = await select(profiles).get();
+            if (allProfiles.isNotEmpty) {
+              final existingTwi = await (select(phrasebookEntries)
+                    ..where((t) => t.category.like('Twi%'))
+                    ..limit(1))
+                  .get();
+              if (existingTwi.isEmpty) {
+                await _seedTwiPhrases(allProfiles.first.id);
+              }
+            }
           }
         },
       );

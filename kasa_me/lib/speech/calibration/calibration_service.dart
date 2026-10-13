@@ -9,6 +9,7 @@ import '../engine/speech_engine.dart';
 import '../engine/speech_engine_factory.dart';
 import '../asr/models/asr_model_registry.dart';
 import '../personalization/personalization_pipeline.dart';
+import '../translation/twi_phrase_data.dart';
 import '../pipeline/streaming_audio_pipeline.dart';
 import '../vad/energy_vad.dart';
 
@@ -17,14 +18,35 @@ class CalibrationResult {
   final String recognizedPhrase;
   final bool isMatch;
 
+  /// True when recognition actually checked the attempt (English,
+  /// on-device ASR). False for recorded-only samples (Twi): the sample
+  /// is saved and counted as training, but no transcript was compared —
+  /// and no UG HCI Lab recognition quota was spent checking it.
+  final bool wasVerified;
+
   CalibrationResult({
     required this.targetPhrase,
     required this.recognizedPhrase,
     required this.isMatch,
+    this.wasVerified = true,
   });
 }
 
 class CalibrationService {
+  /// The language the current calibration session runs in ('en_GH' or
+  /// 'twi'). Set by the wizard before recording starts.
+  String languageCode = 'en_GH';
+
+  bool get _recordOnly => languageCode == 'twi';
+
+  void setLanguage(String code) => languageCode = code;
+
+  /// Calibration phrases for [code] — the Twi set comes from the shared
+  /// [TwiPhraseData] so calibration, phrasebook and glossary agree.
+  static List<String> phrasesForLanguage(String code) => code == 'twi'
+      ? TwiPhraseData.calibrationSet.map((p) => p.twi).toList()
+      : calibrationPhrases;
+
   static const List<String> calibrationPhrases = [
     'I need water',
     'Call my doctor',
@@ -81,14 +103,27 @@ class CalibrationService {
 
   void _handleEngineEvent(SpeechEngineEvent event) {
     if (!_isCalibrating || _currentTargetPhrase == null) return;
+    // In record-only mode (Twi) engine transcripts are meaningless —
+    // completion is emitted by stopRecording() from the saved sample.
+    if (_recordOnly) return;
 
     if (event is FinalTranscript) {
       final recognized = event.text.trim();
       final target = _currentTargetPhrase!.trim();
-      
+
       final isMatch = recognized.toLowerCase() == target.toLowerCase();
-      
+
       AppLogger.log('Calibration', 'Target: $target | Recognized: $recognized | Match: $isMatch');
+
+      // Persist the attempt so the accuracy score reflects training.
+      _personalizationPipeline.recordCalibrationResult(
+        profileId: 'default_user',
+        targetPhrase: target,
+        recognizedPhrase: recognized,
+        verified: true,
+        matched: isMatch,
+        confidence: event.result?.confidence,
+      );
 
       if (!isMatch && recognized.isNotEmpty) {
         // Automatically seed the discrepancy as a correction so the system learns the user's speech
@@ -127,11 +162,31 @@ class CalibrationService {
   Future<void> stopRecording() async {
     await _pipeline.stopPushToTalkSession();
     await _audioSub?.cancel();
-    
+
     if (_currentTargetPhrase != null && _audioBuffer.isNotEmpty) {
       await _saveCalibrationAudio(_currentTargetPhrase!, _audioBuffer.toBytes());
     }
     _audioBuffer.clear();
+
+    if (_recordOnly && _isCalibrating && _currentTargetPhrase != null) {
+      final target = _currentTargetPhrase!;
+      AppLogger.log('Calibration', 'Recorded Twi voice sample for: $target');
+      await _personalizationPipeline.recordCalibrationResult(
+        profileId: 'default_user',
+        targetPhrase: target,
+        recognizedPhrase: '',
+        verified: false,
+        matched: false,
+      );
+      _resultController.add(CalibrationResult(
+        targetPhrase: target,
+        recognizedPhrase: '',
+        isMatch: false,
+        wasVerified: false,
+      ));
+      _isCalibrating = false;
+      _currentTargetPhrase = null;
+    }
   }
 
   Future<void> _saveCalibrationAudio(String phrase, Uint8List pcmData) async {
