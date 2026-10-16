@@ -441,7 +441,7 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
         return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
+            color: Colors.white.withOpacity(0.9),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
