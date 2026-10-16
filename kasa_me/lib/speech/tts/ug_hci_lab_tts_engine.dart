@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/logging/app_logger.dart';
 import '../ug_hci_lab/lab_api_error.dart';
+import '../ug_hci_lab/lab_diagnostics_store.dart';
 import '../ug_hci_lab/ug_hci_lab_config.dart';
 import 'tts_engine.dart';
 
@@ -25,11 +26,16 @@ import 'tts_engine.dart';
 ///     header Authorization: Bearer {apiKey}
 ///   The voice is fixed by the Lab — model_type is always "ss" and the
 ///   speaker always "PT"; there is no language parameter.
-///   Success: the response body IS the WAV audio (Content-Type:
-///   audio/wav), metadata in headers. Errors: JSON envelope, see
-///   [LabApiException] — so the Content-Type is checked before decoding.
+///   Success per the docs: the response body IS the WAV audio. Field
+///   reports (Oct 2026) showed successful requests whose audio then
+///   did not play, so extraction does NOT trust the docs or the
+///   Content-Type: it sniffs the actual bytes (WAV/MP3/OGG), and also
+///   accepts a JSON envelope carrying base64 audio or an audio URL —
+///   see [extractAudio]. Errors: JSON envelope, see [LabApiException].
 ///   Limit: 250 characters per request, so longer text is split into
-///   sentence-sized chunks and played back-to-back (one request each).
+///   sentence-sized chunks (one request each); the next chunk is
+///   synthesized while the current one plays, so the Lab's latency
+///   does not land between chunks.
 class UgHciLabTtsEngine implements TtsEngine {
   /// The Lab's per-request character cap.
   static const int maxCharsPerRequest = 250;
@@ -75,9 +81,23 @@ class UgHciLabTtsEngine implements TtsEngine {
       final chunks = _chunkText(text.trim());
       AppLogger.log('TTS',
           'UgHciLabTtsEngine synthesizing (${text.length} chars, ${chunks.length} request(s)).');
-      for (final chunk in chunks) {
+      // The next chunk is synthesized while the current one plays —
+      // with strictly serial synthesize-then-play, the Lab's
+      // per-request latency landed between chunks and speech arrived
+      // late and in pieces (field report, Oct 2026).
+      Future<http.Response>? pending;
+      for (var i = 0; i < chunks.length; i++) {
         if (!_isSpeaking) break; // stop() called mid-playback
-        await _speakChunk(chunk);
+        pending ??= _synthesizeWithRetry(chunks[i]);
+        final current = pending;
+        pending = null;
+        if (i + 1 < chunks.length) {
+          pending = _synthesizeWithRetry(chunks[i + 1]);
+          // If playback stops before this future is awaited, its
+          // error must not become an unhandled async error.
+          pending.ignore();
+        }
+        await _speakChunk(current);
       }
       AppLogger.log('TTS', 'UgHciLabTtsEngine finished speaking.');
     } catch (e, stack) {
@@ -94,14 +114,26 @@ class UgHciLabTtsEngine implements TtsEngine {
     }
   }
 
-  /// Synthesizes one ≤250-char chunk and plays it to completion.
-  Future<void> _speakChunk(String chunk) async {
-    final response = await _synthesizeWithRetry(chunk);
+  /// Plays one chunk whose synthesis was already started (see the
+  /// prefetch loop in [speak]) and waits for playback to complete.
+  Future<void> _speakChunk(Future<http.Response> synthesis) async {
+    final stopwatch = Stopwatch()..start();
+    final response = await synthesis;
 
-    final audioBytes = _extractAudioBytes(response);
+    final extracted = await extractAudio(response);
+    final audioBytes = extracted.$1;
+    final extension = extracted.$2;
+    await LabDiagnosticsStore.recordTts(
+      statusCode: response.statusCode,
+      contentType: response.headers['content-type'] ?? '',
+      byteCount: audioBytes.length,
+      detectedFormat: extension,
+      elapsed: stopwatch.elapsed,
+    );
+
     final dir = await getTemporaryDirectory();
     final file = File(
-        '${dir.path}/kasa_tts_${DateTime.now().millisecondsSinceEpoch}.wav');
+        '${dir.path}/kasa_tts_${DateTime.now().millisecondsSinceEpoch}.$extension');
     await file.writeAsBytes(audioBytes);
 
     await _player!.setFilePath(file.path);
@@ -141,7 +173,11 @@ class UgHciLabTtsEngine implements TtsEngine {
                 'speaker': 'PT',
               }),
             )
-            .timeout(Duration(seconds: settings.timeoutSeconds));
+            // Synthesis can legitimately take longer than the stored
+            // 30 s default — don't abandon a request the Lab is still
+            // completing successfully.
+            .timeout(Duration(
+                seconds: settings.timeoutSeconds.clamp(90, 300).toInt()));
         if (response.statusCode >= 200 && response.statusCode < 300) {
           return response;
         }
@@ -161,29 +197,143 @@ class UgHciLabTtsEngine implements TtsEngine {
     throw lastNetworkError ?? Exception('Lab TTS request failed.');
   }
 
-  Uint8List _extractAudioBytes(http.Response response) {
+  /// Extracts (audio bytes, file extension) from a TTS response.
+  ///
+  /// The bytes decide, not the Content-Type: raw audio is recognised
+  /// by its magic bytes whatever the header claims. A JSON body is
+  /// searched deeply for base64 audio or an audio URL; a JSON error
+  /// envelope surfaces the Lab's real reason (quota, validation, …).
+  Future<(Uint8List, String)> extractAudio(http.Response response) async {
     final contentType =
         response.headers['content-type']?.toLowerCase() ?? '';
-    if (contentType.contains('audio')) {
-      return response.bodyBytes;
+    final sniffed = sniffAudioFormat(response.bodyBytes);
+    if (sniffed != null) return (response.bodyBytes, sniffed);
+
+    // Not raw audio — try JSON shapes.
+    Object? decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } catch (_) {
+      decoded = null;
     }
-    // Per the docs, a JSON body on this endpoint is an error envelope —
-    // surface the Lab's real reason (quota, validation, …) instead of a
-    // generic "not audio" failure.
-    if (contentType.contains('json')) {
+    if (decoded != null) {
       final parsed = LabApiException.tryParse(
           response.body, response.statusCode);
       if (parsed != null) throw parsed;
+
+      final b64 = _findStringValue(decoded, const [
+        'audio_base64',
+        'audioBase64',
+        'audio_content',
+        'audioContent',
+        'audio',
+        'data',
+      ]);
+      if (b64 != null && b64.trim().isNotEmpty) {
+        var payload = b64.trim();
+        final comma = payload.indexOf(',');
+        if (payload.startsWith('data:') && comma > 0) {
+          payload = payload.substring(comma + 1);
+        }
+        try {
+          final bytes = base64Decode(payload);
+          return (bytes, sniffAudioFormat(bytes) ?? 'wav');
+        } catch (_) {
+          // Not valid base64 — keep looking (it may be a URL).
+        }
+      }
+
+      final url = _findStringValue(
+          decoded, const ['audio_url', 'audioUrl', 'url', 'href', 'audio']);
+      if (url != null && url.startsWith('http')) {
+        final uri = Uri.parse(url);
+        final headers = <String, String>{};
+        if (uri.host == settings.ttsUri().host) {
+          headers.addAll(settings.authHeaders());
+        }
+        final download = await http
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 60));
+        if (download.statusCode >= 200 && download.statusCode < 300) {
+          return (
+            download.bodyBytes,
+            sniffAudioFormat(download.bodyBytes) ?? 'wav'
+          );
+        }
+        throw Exception(
+            'TTS audio URL download failed (HTTP ${download.statusCode}).');
+      }
     }
-    // Fallback: JSON envelope carrying base64 audio.
-    try {
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final b64 =
-          (decoded['audio_base64'] ?? decoded['audio'] ?? '').toString();
-      if (b64.isNotEmpty) return base64Decode(b64);
-    } catch (_) {}
+
+    if (contentType.contains('audio')) {
+      // Header claims audio but the bytes matched no known format —
+      // hand them to the player anyway; it sniffs content itself.
+      return (response.bodyBytes, 'wav');
+    }
     throw Exception(
         'TTS response was not audio (content-type: $contentType).');
+  }
+
+  /// Identifies an audio format from its magic bytes, or null.
+  static String? sniffAudioFormat(Uint8List bytes) {
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x52 && // R
+        bytes[1] == 0x49 && // I
+        bytes[2] == 0x46 && // F
+        bytes[3] == 0x46) {
+      // F
+      return 'wav';
+    }
+    if (bytes.length >= 3 &&
+        bytes[0] == 0x49 && // I
+        bytes[1] == 0x44 && // D
+        bytes[2] == 0x33) {
+      // 3 (ID3 tag)
+      return 'mp3';
+    }
+    if (bytes.length >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0) {
+      return 'mp3'; // MPEG audio frame sync
+    }
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x4F && // O
+        bytes[1] == 0x67 && // g
+        bytes[2] == 0x67 && // g
+        bytes[3] == 0x53) {
+      // S
+      return 'ogg';
+    }
+    if (bytes.length >= 8 &&
+        bytes[4] == 0x66 && // f
+        bytes[5] == 0x74 && // t
+        bytes[6] == 0x79 && // y
+        bytes[7] == 0x70) {
+      // p (ISO BMFF / M4A)
+      return 'm4a';
+    }
+    return null;
+  }
+
+  /// Depth-first search for the first non-empty string stored under
+  /// any of [keys], at any nesting level.
+  static String? _findStringValue(Object? node, List<String> keys,
+      [int depth = 0]) {
+    if (node == null || depth > 6) return null;
+    if (node is Map) {
+      for (final key in keys) {
+        final value = node[key];
+        if (value is String && value.trim().isNotEmpty) return value;
+      }
+      for (final value in node.values) {
+        final nested = _findStringValue(value, keys, depth + 1);
+        if (nested != null) return nested;
+      }
+    } else if (node is List) {
+      for (final item in node) {
+        final nested = _findStringValue(item, keys, depth + 1);
+        if (nested != null) return nested;
+      }
+    }
+    return null;
   }
 
   /// Splits [text] into chunks of at most [maxCharsPerRequest]

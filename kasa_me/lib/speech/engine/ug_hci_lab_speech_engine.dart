@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 import '../../core/logging/app_logger.dart';
 import '../asr/models/asr_model_config.dart';
 import '../ug_hci_lab/lab_api_error.dart';
+import '../ug_hci_lab/lab_diagnostics_store.dart';
 import '../ug_hci_lab/ug_hci_lab_config.dart';
 import 'speech_engine.dart';
 
@@ -28,8 +29,13 @@ import 'speech_engine.dart';
 ///   the audio. Limits: 120 s and 10 MB per request.
 ///   Errors use the documented JSON envelope (see [LabApiException]).
 ///   The success body's shape is not spelled out in the docs, so parsing
-///   accepts "transcript" / "text" / "transcription" keys and falls back
-///   to treating a non-JSON body as the transcript itself.
+///   deep-searches the decoded JSON for a transcript string (see
+///   [parseTranscript]) and falls back to treating a non-JSON body as
+///   the transcript itself. Every exchange is recorded in
+///   [LabDiagnosticsStore] — field reports (Oct 2026) showed requests
+///   succeeding on the Lab's dashboard (HTTP 200) while the app read
+///   an empty transcript, so the raw body is kept where support can
+///   see it (Settings → Speech Provider → Last Lab responses).
 class UgHciLabSpeechEngine implements SpeechEngine {
   final AsrModelConfig config;
   final UgHciLabSettings settings;
@@ -119,6 +125,7 @@ class UgHciLabSpeechEngine implements SpeechEngine {
     }
 
     final startedAt = DateTime.now();
+    var responseRecorded = false;
     try {
       final wav = _encodeWav(pcmBytes, sampleRate: config.sampleRate);
       final request =
@@ -131,29 +138,64 @@ class UgHciLabSpeechEngine implements SpeechEngine {
               contentType: MediaType('audio', 'wav'),
             ));
 
-      final streamed = await request
-          .send()
-          .timeout(Duration(seconds: settings.timeoutSeconds));
+      // Recognition of impaired speech on the Lab's side can take far
+      // longer than the stored 30 s default — a request the Lab
+      // completes successfully (HTTP 200 on its dashboard) must not be
+      // abandoned by our own client first, so the wait has a floor.
+      final timeout = Duration(
+          seconds: settings.timeoutSeconds.clamp(120, 300).toInt());
+      final streamed = await request.send().timeout(timeout);
       final body = await streamed.stream.bytesToString();
+      final elapsed = DateTime.now().difference(startedAt);
+      await LabDiagnosticsStore.recordAsr(
+        statusCode: streamed.statusCode,
+        body: body,
+        elapsed: elapsed,
+      );
+      responseRecorded = true;
 
       if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
         throw LabApiException.fromResponse(body, streamed.statusCode);
       }
 
-      final parsed = _parseTranscript(body);
+      final parsed = parseTranscript(body);
       final transcript = parsed.$1;
       final confidence = parsed.$2;
+
+      if (transcript.trim().isEmpty) {
+        // The Lab answered 200 but no transcript could be read from
+        // its response. Say so — a silent blank looks like the app
+        // ignored the user. The raw body is in Settings → Speech
+        // Provider → Last Lab responses, where support can read the
+        // actual shape and pin the parser to it.
+        AppLogger.log('UG_HCI_LAB',
+            'ASR 200 response held no readable transcript. Body: ${body.substring(0, body.length > 300 ? 300 : body.length)}');
+        _eventController.add(const SpeechEngineError(
+          'The Lab API answered, but its response held no transcript '
+          'we could read. Please try again — and if it repeats, the '
+          'response is saved under Settings → Speech Provider → '
+          'Last Lab responses.',
+        ));
+        _eventController.add(const FinalTranscript(''));
+        return;
+      }
 
       final result = RecognitionResult(
         text: transcript,
         confidence: confidence,
-        processingTime: DateTime.now().difference(startedAt),
+        processingTime: elapsed,
         audioDuration: audioDuration,
       );
       AppLogger.log('UG_HCI_LAB',
           'Transcript received (${transcript.length} chars, confidence=$confidence).');
       _eventController.add(FinalTranscript(transcript, result: result));
     } catch (e, stack) {
+      if (!responseRecorded) {
+        await LabDiagnosticsStore.recordAsrFailure(
+          error: e.toString(),
+          elapsed: DateTime.now().difference(startedAt),
+        );
+      }
       AppLogger.error('UG_HCI_LAB', 'ASR request failed', e, stack);
       _eventController.add(SpeechEngineError(
         e is LabApiException
@@ -206,25 +248,93 @@ class UgHciLabSpeechEngine implements SpeechEngine {
     return out.buffer.asUint8List();
   }
 
+  /// Keys that may carry the transcript, in preference order.
+  static const _transcriptKeys = [
+    'transcript',
+    'transcription',
+    'text',
+    'recognized_text',
+    'recognition',
+    'output',
+    'result_text',
+    'prediction',
+  ];
+
   /// Extracts (transcript, confidence) from an ASR success body.
   ///
-  /// The docs don't spell out the success shape, so accept the common
-  /// transcript keys, and treat a non-JSON body as the transcript itself.
-  static (String, double?) _parseTranscript(String body) {
+  /// The docs don't spell out the success shape, and the first
+  /// field-tested build proved the payload is NOT a flat map with a
+  /// top-level transcript key (requests succeeded with HTTP 200 while
+  /// the app read an empty transcript). So the decoded JSON is
+  /// searched deeply: envelope wrappers (`data`, `result`, …) are
+  /// unwrapped, transcript-shaped keys are preferred at every level,
+  /// and lists are walked. A non-JSON body is treated as the
+  /// transcript itself.
+  static (String, double?) parseTranscript(String body) {
     final trimmed = body.trim();
     try {
       final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, dynamic>) {
-        final transcript = (decoded['transcript'] ??
-                decoded['text'] ??
-                decoded['transcription'] ??
-                '')
-            .toString();
-        return (transcript, (decoded['confidence'] as num?)?.toDouble());
+      final transcript = _findTranscript(decoded);
+      if (transcript != null && transcript.trim().isNotEmpty) {
+        return (transcript, _findConfidence(decoded));
+      }
+      if (decoded is String && decoded.trim().isNotEmpty) {
+        return (decoded, null);
       }
     } catch (_) {
       // Not JSON — fall through to the plain-text transcript.
     }
-    return (trimmed, null);
+    return (trimmed.startsWith('{') || trimmed.startsWith('[')
+        ? ('', null)
+        : (trimmed, null));
+  }
+
+  /// Depth-first search for a transcript string. At each map, direct
+  /// transcript keys win first, then nested containers are searched —
+  /// so a shallow correct value beats a deep speculative one.
+  static String? _findTranscript(Object? node, [int depth = 0]) {
+    if (node == null || depth > 6) return null;
+    if (node is Map) {
+      for (final key in _transcriptKeys) {
+        final value = node[key];
+        if (value is String && value.trim().isNotEmpty) return value;
+        if (value is Map || value is List) {
+          final nested = _findTranscript(value, depth + 1);
+          if (nested != null) return nested;
+        }
+      }
+      for (final value in node.values) {
+        if (value is Map || value is List) {
+          final nested = _findTranscript(value, depth + 1);
+          if (nested != null) return nested;
+        }
+      }
+    } else if (node is List) {
+      for (final item in node) {
+        final nested = _findTranscript(item, depth + 1);
+        if (nested != null) return nested;
+      }
+    }
+    return null;
+  }
+
+  static double? _findConfidence(Object? node, [int depth = 0]) {
+    if (node == null || depth > 6) return null;
+    if (node is Map) {
+      final direct = node['confidence'];
+      if (direct is num) return direct.toDouble();
+      for (final value in node.values) {
+        if (value is Map || value is List) {
+          final nested = _findConfidence(value, depth + 1);
+          if (nested != null) return nested;
+        }
+      }
+    } else if (node is List) {
+      for (final item in node) {
+        final nested = _findConfidence(item, depth + 1);
+        if (nested != null) return nested;
+      }
+    }
+    return null;
   }
 }

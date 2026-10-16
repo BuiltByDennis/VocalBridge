@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/accessibility/accessibility_settings.dart';
 import '../../speech/ug_hci_lab/lab_api_error.dart';
+import '../../speech/ug_hci_lab/lab_diagnostics_store.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../theme/app_theme.dart';
 
@@ -103,6 +104,7 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
       final ttsPath = _ttsPathController.text.trim().isEmpty
           ? UgHciLabSettings.defaultTtsPath
           : _ttsPathController.text.trim();
+      final stopwatch = Stopwatch()..start();
       final response = await http
           .post(
             Uri.parse('$normalized$ttsPath'),
@@ -117,7 +119,24 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
       final code = response.statusCode;
       final contentType =
           response.headers['content-type']?.toLowerCase() ?? '';
-      if (code >= 200 && code < 300 && contentType.contains('audio')) {
+      // The response is audio if the header says so OR the bytes are
+      // a WAV (RIFF) — the header alone has proven unreliable.
+      final bytes = response.bodyBytes;
+      final isWavBytes = bytes.length >= 4 &&
+          bytes[0] == 0x52 &&
+          bytes[1] == 0x49 &&
+          bytes[2] == 0x46 &&
+          bytes[3] == 0x46;
+      await LabDiagnosticsStore.recordTts(
+        statusCode: code,
+        contentType: contentType,
+        byteCount: bytes.length,
+        detectedFormat: isWavBytes ? 'wav' : 'unknown',
+        elapsed: stopwatch.elapsed,
+      );
+      if (code >= 200 &&
+          code < 300 &&
+          (contentType.contains('audio') || isWavBytes)) {
         _testResult = 'Connected ✓ — the Lab accepted your key and returned '
             'speech audio. (This test used 1 of today\'s 15 TTS requests.)';
         _testOk = true;
@@ -278,6 +297,8 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                           ),
                         ),
                       ],
+                      const SizedBox(height: 16),
+                      _labDiagnosticsCard(),
                     ],
                     const SizedBox(height: 24),
                   ],
@@ -403,6 +424,74 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// What the Lab API actually sent back on the most recent ASR/TTS
+  /// calls — the evidence support needs when a request "succeeds" on
+  /// the Lab's dashboard but the app shows an empty transcript or
+  /// stays silent. Data comes from [LabDiagnosticsStore], written by
+  /// the speech engines on every call.
+  Widget _labDiagnosticsCard() {
+    return FutureBuilder<LabDiagnosticsSnapshot>(
+      future: LabDiagnosticsStore.load(),
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        if (data == null || data.isEmpty) return const SizedBox.shrink();
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Last Lab responses',
+                  style:
+                      TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              const SizedBox(height: 2),
+              const Text(
+                'What the Lab API sent back most recently. If speech '
+                'comes back empty or silent, share this with support.',
+                style:
+                    TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              if (data.asr != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'ASR — HTTP ${data.asr!['statusCode']} · '
+                  '${data.asr!['elapsedMs']} ms',
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  (data.asr!['body'] ?? '').toString(),
+                  style:
+                      const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                ),
+              ],
+              if (data.tts != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  'TTS — HTTP ${data.tts!['statusCode']} · '
+                  '${data.tts!['elapsedMs']} ms',
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${data.tts!['byteCount']} bytes · '
+                  '${data.tts!['contentType']} · '
+                  'detected format: ${data.tts!['detectedFormat']}',
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
