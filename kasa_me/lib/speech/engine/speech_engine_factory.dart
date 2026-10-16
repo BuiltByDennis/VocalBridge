@@ -1,7 +1,9 @@
 import 'dart:io';
 import '../asr/models/asr_model_config.dart';
 import '../asr/models/asr_model_registry.dart';
+import '../khaya/khaya_config.dart';
 import '../ug_hci_lab/ug_hci_lab_config.dart';
+import 'khaya_speech_engine.dart';
 import 'mock_speech_engine.dart';
 import 'offline_sherpa_speech_engine.dart';
 import 'sherpa_speech_engine.dart';
@@ -16,12 +18,19 @@ class SpeechEngineFactory {
     bool? useMock,
     bool useLabApi = false,
     UgHciLabSettings? labSettings,
+    bool useKhayaApi = false,
+    KhayaSettings? khayaSettings,
   }) {
     final modelConfig = config ?? AsrModelRegistry.defaultModel;
     final isMock = useMock ?? (forceMock || (!Platform.isAndroid && !Platform.isIOS));
 
     if (isMock) {
       return MockSpeechEngine(modelConfig);
+    }
+
+    // Optional second Ghanaian provider: Khaya AI (Ghana NLP).
+    if (useKhayaApi && khayaSettings != null && khayaSettings.isConfigured) {
+      return KhayaSpeechEngine(modelConfig, khayaSettings);
     }
 
     // Hackathon-compliant path: UG HCI Lab API. Required for Ghanaian

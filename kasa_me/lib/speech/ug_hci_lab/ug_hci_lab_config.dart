@@ -6,9 +6,12 @@ import '../../core/logging/app_logger.dart';
 /// Which speech backend the app should use.
 ///
 /// The hackathon requires ASR/TTS to go through the University of Ghana
-/// HCI Lab APIs. The offline engines remain as a fallback so the app keeps
-/// working when the API is unreachable or not yet configured.
-enum SpeechProvider { offline, ugHciLab }
+/// HCI Lab APIs — that stays the default demo path. Khaya AI (Ghana
+/// NLP) is an optional second Ghanaian provider the user can select
+/// in Settings; it is never required for the hackathon path. The
+/// offline engines remain as a fallback so the app keeps working when
+/// an API is unreachable or not yet configured.
+enum SpeechProvider { offline, ugHciLab, khaya }
 
 /// Persisted settings for the UG HCI Lab speech APIs.
 ///
@@ -83,8 +86,11 @@ class UgHciLabSettings {
         'Authorization': '$authScheme $apiKey',
       };
 
-  String get providerLabel =>
-      provider == SpeechProvider.ugHciLab ? 'UG HCI Lab API' : 'Offline';
+  String get providerLabel => switch (provider) {
+        SpeechProvider.ugHciLab => 'UG HCI Lab API',
+        SpeechProvider.khaya => 'Khaya AI (Ghana NLP)',
+        SpeechProvider.offline => 'Offline',
+      };
 
   UgHciLabSettings copyWith({
     SpeechProvider? provider,
