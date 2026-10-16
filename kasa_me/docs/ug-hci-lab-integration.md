@@ -130,3 +130,5 @@ failures were all in how the app read the responses. Fixed the same day:
   thing support needs when a request "succeeds" but the app stays blank
   or silent. Behaviour is pinned by
   `test/speech/ug_hci_lab_response_test.dart` (21 tests).
+
+**Second provider:** Khaya AI (Ghana NLP) is available as an optional provider — see `docs/khaya-integration.md`. The Lab remains the hackathon path above.

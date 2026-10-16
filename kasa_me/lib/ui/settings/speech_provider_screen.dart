@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/accessibility/accessibility_settings.dart';
+import '../../speech/khaya/khaya_config.dart';
 import '../../speech/ug_hci_lab/lab_api_error.dart';
 import '../../speech/ug_hci_lab/lab_diagnostics_store.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
@@ -28,10 +29,15 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
   late final TextEditingController _apiKeyController;
   late final TextEditingController _asrPathController;
   late final TextEditingController _ttsPathController;
+  late final TextEditingController _khayaKeyController;
   bool _showAdvanced = false;
   bool _testing = false;
   String? _testResult;
   bool _testOk = false;
+  bool _khayaTesting = false;
+  String? _khayaTestResult;
+  bool _khayaTestOk = false;
+  String _khayaSpeaker = '';
 
   @override
   void initState() {
@@ -41,6 +47,9 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     _apiKeyController = TextEditingController(text: s.apiKey);
     _asrPathController = TextEditingController(text: s.asrPath);
     _ttsPathController = TextEditingController(text: s.ttsPath);
+    final k = ref.read(khayaSettingsProvider);
+    _khayaKeyController = TextEditingController(text: k.apiKey);
+    _khayaSpeaker = k.speakerId;
   }
 
   @override
@@ -49,6 +58,7 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     _apiKeyController.dispose();
     _asrPathController.dispose();
     _ttsPathController.dispose();
+    _khayaKeyController.dispose();
     super.dispose();
   }
 
@@ -173,10 +183,90 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     }
   }
 
+  Future<void> _saveKhaya({bool showConfirmation = true}) async {
+    final current = ref.read(khayaSettingsProvider);
+    await ref.read(khayaSettingsProvider.notifier).update(current.copyWith(
+          apiKey: _khayaKeyController.text.trim(),
+          speakerId: _khayaSpeaker,
+        ));
+    if (showConfirmation && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Khaya settings saved — applied immediately.')),
+      );
+    }
+  }
+
+  /// Validates the Khaya key against GET /asr/v3/languages — this
+  /// costs NO speech requests, unlike a synthesis probe.
+  Future<void> _testKhaya() async {
+    final key = _khayaKeyController.text.trim();
+    if (key.isEmpty) {
+      setState(() {
+        _khayaTestResult = 'Enter your Khaya subscription key first.';
+        _khayaTestOk = false;
+      });
+      return;
+    }
+    setState(() {
+      _khayaTesting = true;
+      _khayaTestResult = null;
+    });
+    try {
+      final probe = KhayaSettings(apiKey: key);
+      final response = await http
+          .get(probe.languagesUri(), headers: probe.authHeaders())
+          .timeout(const Duration(seconds: 20));
+      final code = response.statusCode;
+      if (code >= 200 && code < 300) {
+        var count = 0;
+        final codes = <String>{};
+        try {
+          final decoded = jsonDecode(response.body);
+          final langs = decoded is Map ? decoded['languages'] : null;
+          if (langs is List) {
+            count = langs.length;
+            for (final l in langs) {
+              if (l is Map && l['code'] != null) {
+                codes.add(l['code'].toString());
+              }
+            }
+          }
+        } catch (_) {}
+        final ghanaian = ['twi', 'ewe', 'dag']
+            .where(codes.contains)
+            .map((c) => switch (c) {
+                  'twi' => 'Twi',
+                  'ewe' => 'Ewe',
+                  _ => 'Dagbani',
+                })
+            .join(', ');
+        _khayaTestResult = 'Connected ✓ — your key works. Khaya lists '
+            '$count languages${ghanaian.isNotEmpty ? ', including $ghanaian' : ''}. '
+            '(This check used no speech requests.)';
+        _khayaTestOk = true;
+      } else if (code == 401 || code == 403) {
+        _khayaTestResult = 'Server reachable — but the Khaya key was '
+            'rejected (HTTP $code). Check the key.';
+        _khayaTestOk = false;
+      } else {
+        _khayaTestResult =
+            'Server reachable (HTTP $code). If speech does not work in the app, check the key.';
+        _khayaTestOk = false;
+      }
+    } catch (e) {
+      _khayaTestResult = 'Could not reach Khaya: $e';
+      _khayaTestOk = false;
+    } finally {
+      if (mounted) setState(() => _khayaTesting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(ugHciLabSettingsProvider);
+    final khayaSettings = ref.watch(khayaSettingsProvider);
     final isLab = settings.provider == SpeechProvider.ugHciLab;
+    final isKhaya = settings.provider == SpeechProvider.khaya;
     final isHC =
         ref.watch(accessibilitySettingsProvider).highContrastMode;
 
@@ -207,6 +297,13 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                       icon: Icons.cloud_outlined,
                       selected: isLab,
                       onTap: () => _setProvider(SpeechProvider.ugHciLab),
+                    ),
+                    _providerCard(
+                      title: 'Khaya AI (Ghana NLP)',
+                      subtitle: 'Khaya speech services · Twi, Ewe, Dagbani · you pick the language',
+                      icon: Icons.language_outlined,
+                      selected: isKhaya,
+                      onTap: () => _setProvider(SpeechProvider.khaya),
                     ),
                     if (isLab) ...[
                       const SizedBox(height: 16),
@@ -297,9 +394,66 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 16),
-                      _labDiagnosticsCard(),
                     ],
+                    if (isKhaya) ...[
+                      const SizedBox(height: 16),
+                      _textField(
+                        controller: _khayaKeyController,
+                        label: 'Khaya API key',
+                        hint: 'Paste your Khaya subscription key',
+                        obscure: true,
+                      ),
+                      const SizedBox(height: 8),
+                      _khayaStatusRow(khayaSettings),
+                      const SizedBox(height: 12),
+                      _khayaSpeakerRow(),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _saveKhaya(),
+                              child: const Text('Save'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _khayaTesting ? null : _testKhaya,
+                              child: _khayaTesting
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text('Test connection'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_khayaTestResult != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: (_khayaTestOk ? Colors.green : Colors.amber)
+                                .withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _khayaTestResult!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _khayaTestOk
+                                  ? Colors.green.shade800
+                                  : Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                    const SizedBox(height: 16),
+                    _labDiagnosticsCard(),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -427,11 +581,82 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     );
   }
 
-  /// What the Lab API actually sent back on the most recent ASR/TTS
-  /// calls — the evidence support needs when a request "succeeds" on
-  /// the Lab's dashboard but the app shows an empty transcript or
-  /// stays silent. Data comes from [LabDiagnosticsStore], written by
-  /// the speech engines on every call.
+  Widget _khayaStatusRow(KhayaSettings settings) {
+    final ok = settings.isConfigured;
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: (ok ? Colors.green : Colors.amber).withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            ok ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+            size: 18,
+            color: ok ? Colors.green.shade700 : Colors.amber.shade800,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              ok
+                  ? 'Khaya key saved — Twi, Ewe and Dagbani ready via Khaya.'
+                  : 'No Khaya key yet — subscribe at translation.ghananlp.org and paste the key here.',
+              style: TextStyle(
+                fontSize: 13,
+                color: ok ? Colors.green.shade800 : Colors.amber.shade900,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _khayaSpeakerRow() {
+    const labels = {
+      '': 'Default voice (per language)',
+      'male_low': 'Male — low',
+      'male_high': 'Male — high',
+      'female': 'Female',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Voice',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: DropdownButton<String>(
+            value: _khayaSpeaker,
+            isExpanded: true,
+            underline: const SizedBox.shrink(),
+            items: labels.entries
+                .map((e) => DropdownMenuItem(
+                      value: e.key,
+                      child: Text(e.value, style: const TextStyle(fontSize: 14)),
+                    ))
+                .toList(),
+            onChanged: (v) => setState(() => _khayaSpeaker = v ?? ''),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// What the speech API actually sent back on the most recent
+  /// ASR/TTS calls — the evidence support needs when a request
+  /// "succeeds" on the provider's dashboard but the app shows an
+  /// empty transcript or stays silent. Data comes from
+  /// [LabDiagnosticsStore], written by the speech engines on every
+  /// call (each record names its provider).
   Widget _labDiagnosticsCard() {
     return FutureBuilder<LabDiagnosticsSnapshot>(
       future: LabDiagnosticsStore.load(),
@@ -447,12 +672,12 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Last Lab responses',
+              const Text('Last API responses',
                   style:
                       TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
               const SizedBox(height: 2),
               const Text(
-                'What the Lab API sent back most recently. If speech '
+                'What the speech API sent back most recently. If speech '
                 'comes back empty or silent, share this with support.',
                 style:
                     TextStyle(fontSize: 12, color: AppTheme.textSecondary),
@@ -460,7 +685,8 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
               if (data.asr != null) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'ASR — HTTP ${data.asr!['statusCode']} · '
+                  'ASR · ${data.asr!['provider'] ?? 'UG HCI Lab'} — '
+                  'HTTP ${data.asr!['statusCode']} · '
                   '${data.asr!['elapsedMs']} ms',
                   style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w600),
@@ -475,7 +701,8 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
               if (data.tts != null) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'TTS — HTTP ${data.tts!['statusCode']} · '
+                  'TTS · ${data.tts!['provider'] ?? 'UG HCI Lab'} — '
+                  'HTTP ${data.tts!['statusCode']} · '
                   '${data.tts!['elapsedMs']} ms',
                   style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.w600),
