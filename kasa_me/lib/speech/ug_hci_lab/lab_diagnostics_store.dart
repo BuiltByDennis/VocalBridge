@@ -2,15 +2,16 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// The most recent UG HCI Lab API exchanges, kept so a failed or empty
-/// speech result can be diagnosed from facts instead of guesses.
+/// The most recent speech-API exchanges (UG HCI Lab and Khaya AI —
+/// each record is tagged with its provider), kept so a failed or
+/// empty speech result can be diagnosed from facts instead of guesses.
 ///
 /// The Lab's published docs do not show the exact success-body shapes,
 /// and production (release) builds have no visible app logs — so the
 /// engines record what actually came back here: status, timing, the raw
 /// ASR body (truncated), and the TTS response's content-type / size /
 /// detected format. Settings → Speech Provider shows these under
-/// "Last Lab responses", where the user can read or copy them for
+/// "Last API responses", where the user can read or copy them for
 /// support. One record per service; every new call overwrites it.
 ///
 /// Stored in secure storage like the other speech settings — it can
@@ -29,12 +30,14 @@ class LabDiagnosticsStore {
     required int statusCode,
     required String body,
     required Duration elapsed,
+    String provider = 'UG HCI Lab',
   }) async {
     try {
       await _storage.write(
         key: _asrKey,
         value: jsonEncode({
           'at': DateTime.now().toIso8601String(),
+          'provider': provider,
           'statusCode': statusCode,
           'elapsedMs': elapsed.inMilliseconds,
           'body': body.length > maxBodyChars
@@ -50,12 +53,14 @@ class LabDiagnosticsStore {
   static Future<void> recordAsrFailure({
     required String error,
     required Duration elapsed,
+    String provider = 'UG HCI Lab',
   }) async {
     try {
       await _storage.write(
         key: _asrKey,
         value: jsonEncode({
           'at': DateTime.now().toIso8601String(),
+          'provider': provider,
           'statusCode': 0,
           'elapsedMs': elapsed.inMilliseconds,
           'body': 'Request failed before a response: $error',
@@ -70,12 +75,14 @@ class LabDiagnosticsStore {
     required int byteCount,
     required String detectedFormat,
     required Duration elapsed,
+    String provider = 'UG HCI Lab',
   }) async {
     try {
       await _storage.write(
         key: _ttsKey,
         value: jsonEncode({
           'at': DateTime.now().toIso8601String(),
+          'provider': provider,
           'statusCode': statusCode,
           'elapsedMs': elapsed.inMilliseconds,
           'contentType': contentType,

@@ -18,6 +18,7 @@ import '../../speech/tts/tts_engine_factory.dart';
 import '../../speech/tts/offline_tts_engine.dart';
 import '../../speech/translation/translation_service.dart';
 import '../../speech/translation/dictionary_translation_service.dart';
+import '../../speech/khaya/khaya_config.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
 import '../../profile/repositories/profile_repository.dart';
@@ -254,21 +255,30 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     );
 
     // Resolve the speech provider. Ghanaian languages (Twi, Ewe, Dagbani)
-    // have no bundled on-device model, so they REQUIRE the UG HCI Lab API.
-    // Fail with a clear, actionable message instead of a missing-model crash.
+    // have no bundled on-device model, so they REQUIRE a cloud provider:
+    // the UG HCI Lab API (hackathon path) or Khaya AI. Fail with a clear,
+    // actionable message instead of a missing-model crash.
     final labSettings = await UgHciLabSettings.load();
-    if (profile.preferredLanguage == 'twi' && !labSettings.isConfigured) {
+    final khayaSettings = await KhayaSettings.load();
+    final khayaReady = labSettings.provider == SpeechProvider.khaya &&
+        khayaSettings.isConfigured;
+    if (profile.preferredLanguage == 'twi' &&
+        !labSettings.isConfigured &&
+        !khayaReady) {
       state = state.copyWith(
         engineState: UiEngineState.error,
-        errorMessage:
-            'Twi needs the UG HCI Lab speech API — there is no on-device Twi model. '
-            'Open Settings → Speech Provider and add your API key to enable it.',
+        errorMessage: labSettings.provider == SpeechProvider.khaya
+            ? 'Twi via Khaya needs a Khaya API key — there is no on-device Twi model. '
+                'Open Settings → Speech Provider and add your Khaya subscription key to enable it.'
+            : 'Twi needs the UG HCI Lab speech API — there is no on-device Twi model. '
+                'Open Settings → Speech Provider and add your API key to enable it.',
       );
       return;
     }
 
     state = state.copyWith(providerLabel: labSettings.providerLabel);
-    _activeSignature = _configSignature(profile, labSettings, speechProfile.conditionKey);
+    _activeSignature =
+        _configSignature(profile, labSettings, speechProfile.conditionKey, khayaSettings);
 
     // Subscribe to Phrasebook — quick phrases follow the active
     // language (Twi phrases carry a 'Twi · …' category) so the strip
@@ -297,10 +307,13 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       config: state.activeModel,
       useLabApi: labSettings.useLabApi,
       labSettings: labSettings,
+      useKhayaApi: khayaReady,
+      khayaSettings: khayaSettings,
     );
     _ttsEngine = TtsEngineFactory.create(
       provider: labSettings.provider,
       labSettings: labSettings,
+      khayaSettings: khayaSettings,
       appLanguage: profile.preferredLanguage,
     );
     _recorderService = AudioRecorderService()
@@ -609,7 +622,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   /// Everything that decides how the engines are built. When this
   /// changes, the engines must be rebuilt — in place, no app restart.
   String _configSignature(PersonalProfileEntity profile,
-          UgHciLabSettings lab, String conditionKey) =>
+          UgHciLabSettings lab, String conditionKey, KhayaSettings khaya) =>
       [
         profile.preferredLanguage,
         conditionKey,
@@ -618,6 +631,8 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         lab.apiKey,
         lab.asrPath,
         lab.ttsPath,
+        khaya.apiKey,
+        khaya.speakerId,
       ].join('|');
 
   Future<void> _teardownEngines() async {
@@ -659,8 +674,9 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       final profile =
           await _profileRepository.getActiveProfile('default_user');
       final lab = await UgHciLabSettings.load();
+      final khaya = await KhayaSettings.load();
       final speechProfile = await SpeechProfileSettings.load();
-      if (_configSignature(profile, lab, speechProfile.conditionKey) ==
+      if (_configSignature(profile, lab, speechProfile.conditionKey, khaya) ==
           _activeSignature) {
         return;
       }

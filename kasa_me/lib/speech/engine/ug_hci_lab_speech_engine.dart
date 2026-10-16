@@ -35,7 +35,7 @@ import 'speech_engine.dart';
 ///   [LabDiagnosticsStore] — field reports (Oct 2026) showed requests
 ///   succeeding on the Lab's dashboard (HTTP 200) while the app read
 ///   an empty transcript, so the raw body is kept where support can
-///   see it (Settings → Speech Provider → Last Lab responses).
+///   see it (Settings → Speech Provider → Last API responses).
 class UgHciLabSpeechEngine implements SpeechEngine {
   final AsrModelConfig config;
   final UgHciLabSettings settings;
@@ -166,7 +166,7 @@ class UgHciLabSpeechEngine implements SpeechEngine {
         // The Lab answered 200 but no transcript could be read from
         // its response. Say so — a silent blank looks like the app
         // ignored the user. The raw body is in Settings → Speech
-        // Provider → Last Lab responses, where support can read the
+        // Provider → Last API responses, where support can read the
         // actual shape and pin the parser to it.
         AppLogger.log('UG_HCI_LAB',
             'ASR 200 response held no readable transcript. Body: ${body.substring(0, body.length > 300 ? 300 : body.length)}');
@@ -174,7 +174,7 @@ class UgHciLabSpeechEngine implements SpeechEngine {
           'The Lab API answered, but its response held no transcript '
           'we could read. Please try again — and if it repeats, the '
           'response is saved under Settings → Speech Provider → '
-          'Last Lab responses.',
+          'Last API responses.',
         ));
         _eventController.add(const FinalTranscript(''));
         return;

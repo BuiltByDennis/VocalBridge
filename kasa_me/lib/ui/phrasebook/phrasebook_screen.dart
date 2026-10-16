@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../core/accessibility/accessibility_settings.dart';
 import '../../storage/database/app_database.dart';
+import '../../speech/khaya/khaya_config.dart';
 import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/tts_engine_factory.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
@@ -34,12 +35,22 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
+  /// Language the current TTS engine was built for. Khaya takes the
+  /// language in every request, so the engine is rebuilt when the
+  /// tapped phrase's language differs (Twi phrases carry a 'Twi · …'
+  /// category). The Lab and offline engines ignore the distinction.
+  String _ttsLanguage = 'en_GH';
+
   @override
   void initState() {
     super.initState();
     _initTts();
     // Rebuild the TTS engine if the user changes speech provider in Settings.
     ref.listen<UgHciLabSettings>(ugHciLabSettingsProvider, (_, __) {
+      _tts.dispose();
+      _initTts();
+    });
+    ref.listen<KhayaSettings>(khayaSettingsProvider, (_, __) {
       _tts.dispose();
       _initTts();
     });
@@ -50,8 +61,21 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
     _tts = TtsEngineFactory.create(
       provider: settings.provider,
       labSettings: settings,
+      khayaSettings: ref.read(khayaSettingsProvider),
+      appLanguage: _ttsLanguage,
     );
     _tts.initialize();
+  }
+
+  void _speakPhrase(PhrasebookEntry entry) {
+    final lang =
+        (entry.category ?? '').startsWith('Twi') ? 'twi' : 'en_GH';
+    if (lang != _ttsLanguage) {
+      _ttsLanguage = lang;
+      _tts.dispose();
+      _initTts();
+    }
+    _tts.speak(entry.phrase);
   }
 
   @override
@@ -220,7 +244,7 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
             ),
             // Speak button
             GestureDetector(
-              onTap: () => _tts.speak(entry.phrase),
+              onTap: () => _speakPhrase(entry),
               child: Container(
                 width: 44,
                 height: 44,
