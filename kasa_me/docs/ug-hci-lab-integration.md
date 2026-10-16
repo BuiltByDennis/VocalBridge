@@ -94,3 +94,39 @@ in a hospital ward communicating a need to an English-speaking nurse:
 - **Sustainability:** zero server costs (Lab hosts models; personalization is
   on-device), offline fallback keeps the app useful without connectivity,
   modular language packs keep maintenance to config, not releases.
+
+## 5. Troubleshooting: "Success" on the Lab dashboard, empty/silent in the app
+
+Field report, Oct 16 2026: the dashboard showed ASR and TTS requests as
+**Success (HTTP 200)** while the app displayed an empty transcript and
+played no (or late, partial) audio. The Lab had done its part — the
+failures were all in how the app read the responses. Fixed the same day:
+
+- **ASR success-body shape.** The published docs never showed it, and the
+  original parser only read top-level `transcript`/`text`/`transcription`
+  keys. The parser now deep-searches the decoded JSON (envelope wrappers
+  like `data`/`result` are unwrapped; transcript-shaped keys win at every
+  level) and treats a non-JSON body as the transcript. If a 200 response
+  still yields nothing, the app now says so instead of showing a silent
+  blank — and the raw body is saved (see below).
+- **Client timeouts.** The stored default was 30 s, but Lab ASR/TTS
+  inference can run longer; the client was abandoning requests the Lab
+  went on to complete successfully. The engines now enforce floors —
+  ASR waits at least 120 s, TTS at least 90 s (stored setting respected
+  above the floor, capped at 300 s).
+- **TTS audio detection.** Playback no longer trusts the Content-Type
+  header: the response bytes are sniffed (WAV/MP3/OGG/M4A magic), a JSON
+  envelope carrying base64 audio or an audio URL is also accepted, and
+  the temp file gets the detected format's extension. The Test
+  connection probe accepts WAV bytes as well as an audio header.
+- **TTS pacing.** Chunks (≤250 chars each) are now synthesized one ahead
+  while the current chunk plays, so per-request latency no longer lands
+  between chunks.
+- **Diagnostics.** Every Lab exchange is recorded in
+  `LabDiagnosticsStore` (secure storage): ASR keeps status, elapsed time
+  and the raw body (first 1,200 chars); TTS keeps status, elapsed,
+  content-type, byte count and detected format. **Settings → Speech
+  Provider → "Last Lab responses"** shows them — that card is the first
+  thing support needs when a request "succeeds" but the app stays blank
+  or silent. Behaviour is pinned by
+  `test/speech/ug_hci_lab_response_test.dart` (21 tests).
