@@ -70,8 +70,12 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
   }
 
   void _speakPhrase(PhrasebookEntry entry) {
-    final lang =
-        (entry.category ?? '').startsWith('Twi') ? 'twi' : 'en_GH';
+    final category = entry.category ?? '';
+    final lang = category.startsWith('Twi')
+        ? 'twi'
+        : category.startsWith('Ewe')
+            ? 'ewe'
+            : 'en_GH';
     if (lang != _ttsLanguage) {
       _ttsLanguage = lang;
       _tts.dispose();

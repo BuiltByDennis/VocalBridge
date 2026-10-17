@@ -19,7 +19,7 @@ class _LanguageOption {
 const _languages = [
   _LanguageOption('English (Ghana)', 'en_GH', '🇬🇭'),
   _LanguageOption('Twi', 'twi', '🇬🇭', comingSoon: false),
-  _LanguageOption('Ewe', 'ewe', '🇬🇭', comingSoon: true),
+  _LanguageOption('Ewe', 'ewe', '🇬🇭', comingSoon: false),
   _LanguageOption('Dagbani', 'dagbani', '🇬🇭', comingSoon: true),
 ];
 
@@ -155,11 +155,11 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
                       'Coming soon',
                       style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
-                  if (lang.code == 'twi')
+                  if (lang.code == 'twi' || lang.code == 'ewe')
                     const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Text(
-                        'Requires UG HCI Lab API key — Settings → Speech Provider',
+                        'Requires a cloud speech provider (UG HCI Lab or Khaya) — Settings → Speech Provider',
                         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
                     ),

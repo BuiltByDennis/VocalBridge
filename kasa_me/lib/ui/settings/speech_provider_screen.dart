@@ -627,7 +627,7 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
           Expanded(
             child: Text(
               ok
-                  ? 'Khaya key saved — Twi, Ewe and Dagbani ready via Khaya.'
+                  ? 'Khaya key saved — Twi and Ewe ready via Khaya.'
                   : 'No Khaya key yet — subscribe at translation.ghananlp.org and paste the key here.',
               style: TextStyle(
                 fontSize: 13,

@@ -50,7 +50,9 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
 
   List<String> get _phrases =>
       CalibrationService.phrasesForLanguage(_language);
-  bool get _isTwi => _language == 'twi';
+  bool get _isGhanaian => _language == 'twi' || _language == 'ewe';
+  String get _languageName =>
+      _language == 'twi' ? 'Twi' : (_language == 'ewe' ? 'Ewe' : 'English');
 
   StreamSubscription? _resultSub;
 
@@ -185,39 +187,46 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Language toggle — English phrases are checked by the
-              // on-device recognizer; Twi phrases are recorded as voice
-              // samples (no Lab recognition quota is spent).
+              // on-device recognizer; Ghanaian phrases (Twi, Ewe) are
+              // recorded as voice samples (no cloud recognition quota
+              // is spent).
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ChoiceChip(
                     label: const Text('English'),
-                    selected: !_isTwi,
+                    selected: _language == 'en_GH',
                     onSelected: (_) => _setLanguage('en_GH'),
                   ),
                   const SizedBox(width: 12),
                   ChoiceChip(
                     label: const Text('Twi'),
-                    selected: _isTwi,
+                    selected: _language == 'twi',
                     onSelected: (_) => _setLanguage('twi'),
+                  ),
+                  const SizedBox(width: 12),
+                  ChoiceChip(
+                    label: const Text('Ewe'),
+                    selected: _language == 'ewe',
+                    onSelected: (_) => _setLanguage('ewe'),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              if (_isTwi)
+              if (_isGhanaian)
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.secondaryContainer.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    'Twi calibration saves your voice samples on this phone and teaches Kasa Me your Twi phrases. It does not use your UG HCI Lab recognition quota.',
+                  child: Text(
+                    '$_languageName calibration saves your voice samples on this phone and teaches Kasa Me your $_languageName phrases. It does not use your cloud recognition quota.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13),
+                    style: const TextStyle(fontSize: 13),
                   ),
                 ),
-              if (_isTwi) const SizedBox(height: 16),
+              if (_isGhanaian) const SizedBox(height: 16),
               // Progress Indicator
               Text(
                 'Step ${_currentStepIndex + 1} of $totalSteps',
