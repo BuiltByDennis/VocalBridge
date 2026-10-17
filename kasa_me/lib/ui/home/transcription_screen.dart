@@ -58,6 +58,36 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
       });
     }
 
+    // Keep the latest message's translation in sync with the state:
+    // the Twi/Ewe target toggle re-glosses the current utterance in
+    // the notifier, and the snapshot above would otherwise keep
+    // showing the previous language's gloss.
+    if (_messages.isNotEmpty &&
+        state.translationTargetLabel.isNotEmpty &&
+        (state.personalizedTranscript == _messages.last.personalized ||
+            state.rawTranscript == _messages.last.raw) &&
+        (_messages.last.translation != state.translation ||
+            _messages.last.translationTargetLabel !=
+                state.translationTargetLabel)) {
+      final last = _messages.last;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _messages[_messages.length - 1] = _Message(
+              raw: last.raw,
+              personalized: last.personalized,
+              confidence: last.confidence,
+              timestamp: last.timestamp,
+              translation: state.translation,
+              translationSourceLabel: state.translationSourceLabel,
+              translationTargetLabel: state.translationTargetLabel,
+              translationTargetCode: state.translationTargetCode,
+            );
+          });
+        }
+      });
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -261,7 +291,8 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
         // The completed task, made visible: what was said, side by side with
         // what it means for the other person. Each side speaks aloud in its
         // own language.
-        _buildTranslationCard(context, notifier, msg, isHC: isHC),
+        _buildTranslationCard(context, notifier, msg,
+            isHC: isHC, isLatest: index == _messages.length - 1),
         // Show corrections if personalized differs from raw
         if (hasDiff)
           Padding(
@@ -334,8 +365,10 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     HomeCommunicationNotifier notifier,
     _Message msg, {
     bool isHC = false,
+    bool isLatest = false,
   }) {
-    // Only for language pairs the app can translate (currently Twi ↔ English).
+    // Only for language pairs the app can translate (Twi ↔ English,
+    // Ewe ↔ English).
     if (msg.translationTargetLabel.isEmpty) return const SizedBox.shrink();
 
     final textScaler = MediaQuery.textScalerOf(context);
@@ -376,6 +409,34 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
               ),
             ],
           ),
+          // An English speaker chooses the patient's language. Shown
+          // on the current utterance only — older cards keep the pair
+          // they were actually translated under.
+          if (isLatest && msg.translationSourceLabel == 'English') ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text(
+                  'Translate into:',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Twi'),
+                  selected: msg.translationTargetLabel == 'Twi',
+                  onSelected: (_) =>
+                      notifier.setEnglishTargetLanguage('twi'),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Ewe'),
+                  selected: msg.translationTargetLabel == 'Ewe',
+                  onSelected: (_) =>
+                      notifier.setEnglishTargetLanguage('ewe'),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
           if (hasTranslation)
             Row(
