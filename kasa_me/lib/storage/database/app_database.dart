@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
+import '../../speech/translation/ewe_phrase_data.dart';
 import '../../speech/translation/twi_phrase_data.dart';
 import 'tables.dart';
 
@@ -25,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// Seeds the curated Twi phrasebook for [profileId] from the shared
   /// [TwiPhraseData] list (the same source as the translation glossary),
@@ -40,6 +41,23 @@ class AppDatabase extends _$AppDatabase {
           profileId: profileId,
           phrase: p.twi,
           category: Value('Twi · ${p.category}'),
+        ),
+      );
+    }
+  }
+
+  /// Seeds the curated Ewe phrasebook for [profileId] from the shared
+  /// [EwePhraseData] list — the Ewe mirror of [_seedTwiPhrases], so
+  /// every phrasebook phrase is guaranteed to have a translation.
+  Future<void> _seedEwePhrases(int profileId) async {
+    final seen = <String>{};
+    for (final p in EwePhraseData.phrases) {
+      if (!seen.add(p.ewe)) continue;
+      await into(phrasebookEntries).insert(
+        PhrasebookEntriesCompanion.insert(
+          profileId: profileId,
+          phrase: p.ewe,
+          category: Value('Ewe · ${p.category}'),
         ),
       );
     }
@@ -81,6 +99,9 @@ class AppDatabase extends _$AppDatabase {
 
           // Seed the Twi phrasebook (same install gets both languages).
           await _seedTwiPhrases(defaultProfileId);
+
+          // Seed the Ewe phrasebook alongside it.
+          await _seedEwePhrases(defaultProfileId);
         },
         onUpgrade: (m, from, to) async {
           if (from == 1) {
@@ -101,6 +122,19 @@ class AppDatabase extends _$AppDatabase {
                   .get();
               if (existingTwi.isEmpty) {
                 await _seedTwiPhrases(allProfiles.first.id);
+              }
+            }
+          }
+          if (from < 4) {
+            // Give existing installs the Ewe phrasebook too (once).
+            final allProfiles = await select(profiles).get();
+            if (allProfiles.isNotEmpty) {
+              final existingEwe = await (select(phrasebookEntries)
+                    ..where((t) => t.category.like('Ewe%'))
+                    ..limit(1))
+                  .get();
+              if (existingEwe.isEmpty) {
+                await _seedEwePhrases(allProfiles.first.id);
               }
             }
           }

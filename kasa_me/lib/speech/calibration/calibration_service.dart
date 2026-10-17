@@ -9,6 +9,7 @@ import '../engine/speech_engine.dart';
 import '../engine/speech_engine_factory.dart';
 import '../asr/models/asr_model_registry.dart';
 import '../personalization/personalization_pipeline.dart';
+import '../translation/ewe_phrase_data.dart';
 import '../translation/twi_phrase_data.dart';
 import '../pipeline/streaming_audio_pipeline.dart';
 import '../vad/energy_vad.dart';
@@ -33,19 +34,27 @@ class CalibrationResult {
 }
 
 class CalibrationService {
-  /// The language the current calibration session runs in ('en_GH' or
-  /// 'twi'). Set by the wizard before recording starts.
+  /// The language the current calibration session runs in ('en_GH',
+  /// 'twi' or 'ewe'). Set by the wizard before recording starts.
   String languageCode = 'en_GH';
 
-  bool get _recordOnly => languageCode == 'twi';
+  /// Ghanaian languages calibrate in record-only mode: samples are
+  /// saved as the speaker's personalization data without spending
+  /// cloud ASR quota verifying them (and the on-device engine cannot
+  /// transcribe them anyway).
+  bool get _recordOnly =>
+      languageCode == 'twi' || languageCode == 'ewe';
 
   void setLanguage(String code) => languageCode = code;
 
-  /// Calibration phrases for [code] — the Twi set comes from the shared
-  /// [TwiPhraseData] so calibration, phrasebook and glossary agree.
-  static List<String> phrasesForLanguage(String code) => code == 'twi'
-      ? TwiPhraseData.calibrationSet.map((p) => p.twi).toList()
-      : calibrationPhrases;
+  /// Calibration phrases for [code] — the Ghanaian sets come from the
+  /// shared phrase data ([TwiPhraseData] / [EwePhraseData]) so
+  /// calibration, phrasebook and glossary agree.
+  static List<String> phrasesForLanguage(String code) => switch (code) {
+        'twi' => TwiPhraseData.calibrationSet.map((p) => p.twi).toList(),
+        'ewe' => EwePhraseData.calibrationSet.map((p) => p.ewe).toList(),
+        _ => calibrationPhrases,
+      };
 
   static const List<String> calibrationPhrases = [
     'I need water',
@@ -170,7 +179,8 @@ class CalibrationService {
 
     if (_recordOnly && _isCalibrating && _currentTargetPhrase != null) {
       final target = _currentTargetPhrase!;
-      AppLogger.log('Calibration', 'Recorded Twi voice sample for: $target');
+      AppLogger.log(
+          'Calibration', 'Recorded voice sample ($languageCode) for: $target');
       await _personalizationPipeline.recordCalibrationResult(
         profileId: 'default_user',
         targetPhrase: target,

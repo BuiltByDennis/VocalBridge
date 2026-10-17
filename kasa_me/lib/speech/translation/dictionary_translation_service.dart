@@ -1,12 +1,14 @@
+import 'ewe_phrase_data.dart';
 import 'twi_phrase_data.dart';
 import 'translation_service.dart';
 
-/// Offline Twi ↔ English translation for Kasa Me.
+/// Offline Ghanaian ↔ English translation for Kasa Me (Twi and Ewe).
 ///
 /// Coverage is layered, and every layer is deterministic dictionary
 /// behaviour — the service never invents a translation:
 ///
-/// 1. **Curated phrases** ([TwiPhraseData], ~60 care/daily-life phrases):
+/// 1. **Curated phrases** ([TwiPhraseData] / [EwePhraseData], ~65
+///    care/daily-life phrases per language):
 ///    exact match on normalized, diacritic-folded text. ASR output that
 ///    drops ɛ/ɔ still matches, because keys fold ɛ→e and ɔ→o.
 /// 2. **Near-miss phrases**: a small edit distance or the same words in a
@@ -30,30 +32,57 @@ import 'translation_service.dart';
 /// can implement [TranslationService] and take over this pair without any
 /// UI changes.
 class DictionaryTranslationService implements TranslationService {
-  late final Map<String, String> _twiToEn = _buildPhraseMap(twiSide: true);
-  late final Map<String, String> _enToTwi = _buildPhraseMap(twiSide: false);
-  late final Map<String, String> _twiWordToEn = _buildWordMap(twiSide: true);
-  late final Map<String, String> _enWordToTwi = _buildWordMap(twiSide: false);
+  late final Map<String, String> _twiToEn =
+      _buildPhraseMap(_twiPairs, nativeSide: true);
+  late final Map<String, String> _enToTwi =
+      _buildPhraseMap(_twiPairs, nativeSide: false);
+  late final Map<String, String> _twiWordToEn =
+      _buildWordMap(_twiWords, nativeSide: true);
+  late final Map<String, String> _enWordToTwi =
+      _buildWordMap(_twiWords, nativeSide: false);
+  late final Map<String, String> _eweToEn =
+      _buildPhraseMap(_ewePairs, nativeSide: true);
+  late final Map<String, String> _enToEwe =
+      _buildPhraseMap(_ewePairs, nativeSide: false);
+  late final Map<String, String> _eweWordToEn =
+      _buildWordMap(_eweWords, nativeSide: true);
+  late final Map<String, String> _enWordToEwe =
+      _buildWordMap(_eweWords, nativeSide: false);
 
-  /// Space-stripped phrase keys: Twi recognizers freely join and split
+  /// Space-stripped phrase keys: recognizers freely join and split
   /// words ("mepɛ nsuo", "me pɛnsuo"), so phrase identity must not
   /// depend on where the spaces landed.
   late final Map<String, String> _twiToEnStripped = _stripKeys(_twiToEn);
   late final Map<String, String> _enToTwiStripped = _stripKeys(_enToTwi);
+  late final Map<String, String> _eweToEnStripped = _stripKeys(_eweToEn);
+  late final Map<String, String> _enToEweStripped = _stripKeys(_enToEwe);
 
   static Map<String, String> _stripKeys(Map<String, String> m) => {
         for (final e in m.entries) e.key.replaceAll(' ', ''): e.value,
       };
 
+  /// The two phrase sets in one uniform shape for the map builders.
+  static List<({String native, String english, List<String> aliases})>
+      get _twiPairs => [
+            for (final p in TwiPhraseData.phrases)
+              (native: p.twi, english: p.english, aliases: p.aliases)
+          ];
+  static List<({String native, String english, List<String> aliases})>
+      get _ewePairs => [
+            for (final p in EwePhraseData.phrases)
+              (native: p.ewe, english: p.english, aliases: p.aliases)
+          ];
+
   /// Pure intensifiers/fillers that may surround a phrase without
   /// changing which phrase it is.
   static const Set<String> _twiFillers = {'paa', 'koraa'};
+  static const Set<String> _eweFillers = {'ŋutɔ'};
   static const Set<String> _enFillers = {'um', 'uh', 'er'};
 
   /// (twi word, english word) vocabulary for the word-for-word gloss.
   /// Multi-word values are fine; an empty English value means the word
   /// carries no separate gloss in that direction (e.g. articles).
-  static const List<(String, String)> _words = [
+  static const List<(String, String)> _twiWords = [
     ('me', 'I'), ('wo', 'you'), ('ɔno', 'he / she'), ('yɛn', 'we'),
     ('mo', 'you all'), ('wɔn', 'they'),
     ('me', 'my'), // possessive "me" precedes the noun in Twi: me tiri = my head
@@ -94,13 +123,49 @@ class DictionaryTranslationService implements TranslationService {
     ('bank', 'bank'), ('station', 'station'),
   ];
 
-  static Map<String, String> _buildPhraseMap({required bool twiSide}) {
+  /// (ewe word, english word) vocabulary for the word-for-word gloss —
+  /// the Ewe counterpart of [_twiWords], covering the words the Ewe
+  /// phrase set is built from plus everyday function words. An empty
+  /// value means the word carries no separate gloss in that direction.
+  static const List<(String, String)> _eweWords = [
+    ('nye', 'I'), ('wò', 'you'), ('miawo', 'you all'), ('wo', 'they'),
+    ('nye', 'my'), ('wò', 'your'), ('eƒe', 'his / her'),
+    ('nam', 'for me'), ('ŋunye', 'me'), ('ŋuwò', 'you'),
+    ('hiã', 'need'), ('ɖi', 'want'), ('yɔ', 'call'), ('bia', 'ask'),
+    ('kpɔ', 'see'), ('kpe', 'help'), ('ƒle', 'buy'), ('ɖe', 'take out'),
+    ('nɔ', 'sit'), ('tsi', 'stand'), ('va', 'come'), ('gbɔna', 'is coming'),
+    ('yi', 'go'), ('ɖɔ', 'sleep'), ('le', 'is'), ('mele', 'I am'),
+    ('gblo', 'say'), ('ake', 'again'), ('lala', 'wait'),
+    ('tsi', 'water'), ('nuɖuɖu', 'food'), ('atike', 'medicine'),
+    ('dokita', 'doctor'), ('ga', 'money'), ('bank', 'bank'),
+    ('station', 'station'), ('ambulance', 'ambulance'),
+    ('dɔ', 'sickness'), ('dɔléle', 'sickness'), ('ve', 'pain'),
+    ('ta', 'head'), ('dɔme', 'stomach'), ('akɔta', 'chest'),
+    ('megbe', 'back'), ('afɔ', 'leg'), ('asi', 'hand'), ('aɖu', 'tooth'),
+    ('kɔ', 'throat'), ('ŋu', 'body'), ('ŋuti', 'body'),
+    ('dzo', 'fire'), ('vuvɔ', 'cold'), ('dzidzɔ', 'joy'),
+    ('nuxaxa', 'sadness'), ('vɔ̃', 'fear'),
+    ('akpe', 'thank you'), ('ŋdi', 'morning'), ('ŋdɔ', 'afternoon'),
+    ('fiɛyi', 'evening'), ('woezɔ', 'welcome'), ('enyo', 'good'),
+    ('nyuie', 'well'), ('kaka', 'very much'), ('ɣaɖe', 'a moment'),
+    ('danye', 'my mother'), ('tɔnye', 'my father'),
+    ('ƒometɔwo', 'family'), ('akaɖi', 'light'),
+    ('afi', 'where'), ('ka', 'what'), ('nenie', 'how much'),
+    ('ɣe', 'when'), ('la', 'the'), ('be', 'that'), ('me', 'in'),
+    ('o', 'no'), ('ɛ̃', 'yes'), ('kuku', 'please'), ('', 'to'),
+    ('a', ''), // question particle — no separate gloss
+  ];
+
+  static Map<String, String> _buildPhraseMap(
+    List<({String native, String english, List<String> aliases})> phrases, {
+    required bool nativeSide,
+  }) {
     final map = <String, String>{};
-    for (final p in TwiPhraseData.phrases) {
-      final from = twiSide ? p.twi : p.english;
-      final to = twiSide ? p.english : p.twi;
+    for (final p in phrases) {
+      final from = nativeSide ? p.native : p.english;
+      final to = nativeSide ? p.english : p.native;
       map.putIfAbsent(_key(from), () => to);
-      if (twiSide) {
+      if (nativeSide) {
         for (final a in p.aliases) {
           map.putIfAbsent(_key(a), () => to);
         }
@@ -109,11 +174,14 @@ class DictionaryTranslationService implements TranslationService {
     return map;
   }
 
-  static Map<String, String> _buildWordMap({required bool twiSide}) {
+  static Map<String, String> _buildWordMap(
+    List<(String, String)> words, {
+    required bool nativeSide,
+  }) {
     final map = <String, String>{};
-    for (final (twi, en) in _words) {
-      final from = twiSide ? twi : en;
-      final to = twiSide ? en : twi;
+    for (final (native, en) in words) {
+      final from = nativeSide ? native : en;
+      final to = nativeSide ? en : native;
       // First entry wins for ambiguous words (e.g. 'me' → 'I' before 'my'
       // on the English side, where keys collide less).
       map.putIfAbsent(_key(from), () => to);
@@ -122,33 +190,69 @@ class DictionaryTranslationService implements TranslationService {
   }
 
   /// Lookup key: lowercase, punctuation-light, whitespace-collapsed, and
-  /// diacritic-folded (ɛ→e, ɔ→o) so recognition output written without
-  /// the special Twi characters still finds its phrase.
+  /// diacritic-folded (ɛ→e, ɔ→o, ŋ→n, ƒ→f, ɖ→d, ɣ→g, nasal marks
+  /// dropped) so recognition output written without the special
+  /// Ghanaian characters still finds its phrase.
   static String _key(String s) {
     var t = s.toLowerCase().trim();
     t = t.replaceAll('\u2019', "'");
     t = t.replaceAll(RegExp(r'[.?!,;:]+'), ' ');
     t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
     t = t.replaceAll('ɛ', 'e').replaceAll('ɔ', 'o');
+    t = t.replaceAll('ŋ', 'n').replaceAll('ƒ', 'f');
+    t = t.replaceAll('ɖ', 'd').replaceAll('ɣ', 'g');
+    t = t.replaceAll('ã', 'a').replaceAll('\u0303', '');
     return t;
   }
 
   @override
   bool supportsPair(String from, String to) {
-    return (from == 'twi' && to == 'en_GH') ||
-        (from == 'en_GH' && to == 'twi');
+    const pairs = {
+      ('twi', 'en_GH'),
+      ('en_GH', 'twi'),
+      ('ewe', 'en_GH'),
+      ('en_GH', 'ewe'),
+    };
+    return pairs.contains((from, to));
   }
 
   @override
   String? translate(String text, {required String from, required String to}) {
-    if (!supportsPair(from, to)) return null;
+    final selected = switch ((from, to)) {
+      ('twi', 'en_GH') => (
+          phrases: _twiToEn,
+          stripped: _twiToEnStripped,
+          words: _twiWordToEn,
+          fillers: _twiFillers
+        ),
+      ('en_GH', 'twi') => (
+          phrases: _enToTwi,
+          stripped: _enToTwiStripped,
+          words: _enWordToTwi,
+          fillers: _enFillers
+        ),
+      ('ewe', 'en_GH') => (
+          phrases: _eweToEn,
+          stripped: _eweToEnStripped,
+          words: _eweWordToEn,
+          fillers: _eweFillers
+        ),
+      ('en_GH', 'ewe') => (
+          phrases: _enToEwe,
+          stripped: _enToEweStripped,
+          words: _enWordToEwe,
+          fillers: _enFillers
+        ),
+      _ => null,
+    };
+    if (selected == null) return null;
     final key = _key(text);
     if (key.isEmpty) return null;
 
-    final phrases = from == 'twi' ? _twiToEn : _enToTwi;
-    final stripped = from == 'twi' ? _twiToEnStripped : _enToTwiStripped;
-    final words = from == 'twi' ? _twiWordToEn : _enWordToTwi;
-    final fillers = from == 'twi' ? _twiFillers : _enFillers;
+    final phrases = selected.phrases;
+    final stripped = selected.stripped;
+    final words = selected.words;
+    final fillers = selected.fillers;
 
     // 1. Exact curated phrase.
     final exact = phrases[key];

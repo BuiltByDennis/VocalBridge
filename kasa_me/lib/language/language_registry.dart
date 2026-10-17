@@ -38,15 +38,18 @@ class LanguageRegistry {
       code: 'twi',
       displayName: 'Twi',
       nativeName: 'Twi',
-      enabled: false,
-      isExperimental: true,
+      enabled: true,
+      isExperimental: false,
     ),
     LanguageConfig(
       id: AppLanguage.ewe,
       code: 'ewe',
       displayName: 'Ewe',
       nativeName: 'Eʋegbe',
-      enabled: false,
+      // Fully wired like Twi (phrasebook, dictionary, calibration,
+      // both cloud providers); marked experimental while the curated
+      // phrase set awaits native-speaker review.
+      enabled: true,
       isExperimental: true,
     ),
     LanguageConfig(
