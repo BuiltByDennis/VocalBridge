@@ -189,6 +189,7 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   bool _initializing = false;
   bool _refreshing = false;
   bool _pendingRefresh = false;
+  bool _ignoreNextEngineResult = false;
   String? _activeSignature;
 
   /// The behaviour profile currently shaping recognition for this user.
@@ -365,6 +366,14 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   }
 
   Future<void> _handleEngineEvent(SpeechEngineEvent event) async {
+    // A result the user already cancelled (slow provider) is
+    // swallowed: the UI was handed back to them and must not be
+    // hijacked by the late transcript or error when it lands.
+    if (_ignoreNextEngineResult &&
+        (event is FinalTranscript || event is SpeechEngineError)) {
+      _ignoreNextEngineResult = false;
+      return;
+    }
     switch (event) {
       case EngineReady():
         state = state.copyWith(engineState: UiEngineState.ready, partialTranscript: '');
@@ -444,6 +453,9 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
   Future<void> startPushToTalk() async {
     if (state.engineState != UiEngineState.ready) return;
+    // A new recording supersedes any cancelled request still in
+    // flight — its late result is no longer the one to swallow.
+    _ignoreNextEngineResult = false;
     try {
       HapticFeedback.heavyImpact();
       await _pipeline.startPushToTalkSession();
@@ -555,6 +567,20 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     await _ttsEngine.stop();
     await _englishTts.stop();
     state = state.copyWith(isSpeaking: false);
+  }
+
+  /// The user gives up waiting on a slow provider: hand the UI back
+  /// immediately and swallow the late result when it finally lands
+  /// (see [_handleEngineEvent]). The provider may still complete —
+  /// and bill — the request in the background; what the user gets
+  /// back is their app, responsive, now.
+  void cancelProcessing() {
+    if (state.engineState != UiEngineState.processing) return;
+    _ignoreNextEngineResult = true;
+    state = state.copyWith(
+      engineState: UiEngineState.ready,
+      partialTranscript: '',
+    );
   }
 
   // ── Bidirectional translation (Twi ↔ English, care scenario) ──

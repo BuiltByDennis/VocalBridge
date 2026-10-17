@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -108,6 +109,10 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
       _testing = true;
       _testResult = null;
     });
+    // Persist first: the app runs on what is SAVED, so test exactly
+    // that. A key typed but never saved used to pass tests here
+    // while the app itself kept running without it.
+    await _save(showConfirmation: false);
     try {
       final normalized =
           base.endsWith('/') ? base.substring(0, base.length - 1) : base;
@@ -125,7 +130,10 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
             body: jsonEncode(
                 {'text': 'Akwaaba', 'model_type': 'ss', 'speaker': 'PT'}),
           )
-          .timeout(const Duration(seconds: 20));
+          // The Lab can take well over 20 s to synthesize when it is
+          // busy (requests sit "In Progress" on its dashboard) — a
+          // shorter cap reported a healthy key as unreachable.
+          .timeout(const Duration(seconds: 60));
       final code = response.statusCode;
       final contentType =
           response.headers['content-type']?.toLowerCase() ?? '';
@@ -175,6 +183,12 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
           _testOk = code >= 200 && code < 300;
         }
       }
+    } on TimeoutException {
+      _testResult = 'The Lab did not answer within 60 seconds — its '
+          'service is slow right now (requests sit "In Progress" on '
+          'the Lab dashboard when this happens). Your key may still '
+          'be fine; wait a moment and test again.';
+      _testOk = false;
     } catch (e) {
       _testResult = 'Could not reach the server: $e';
       _testOk = false;
@@ -211,11 +225,17 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
       _khayaTesting = true;
       _khayaTestResult = null;
     });
+    // Persist first — the app runs on what is SAVED, so test exactly
+    // that (same trap as the Lab key: typed-but-unsaved tested fine
+    // here while the app kept running without it).
+    await _saveKhaya(showConfirmation: false);
     try {
       final probe = KhayaSettings(apiKey: key);
       final response = await http
           .get(probe.languagesUri(), headers: probe.authHeaders())
-          .timeout(const Duration(seconds: 20));
+          // A first call to Khaya's gateway can be slow (cold start,
+          // mobile data) — 20 s reported a working key as broken.
+          .timeout(const Duration(seconds: 45));
       final code = response.statusCode;
       if (code >= 200 && code < 300) {
         var count = 0;
@@ -253,6 +273,12 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
             'Server reachable (HTTP $code). If speech does not work in the app, check the key.';
         _khayaTestOk = false;
       }
+    } on TimeoutException {
+      _khayaTestResult = 'Khaya did not answer within 45 seconds. '
+          'Their gateway can be slow on a first call, or your '
+          'connection is slow right now — the key may still be fine. '
+          'Wait a moment and test again.';
+      _khayaTestOk = false;
     } catch (e) {
       _khayaTestResult = 'Could not reach Khaya: $e';
       _khayaTestOk = false;
@@ -288,7 +314,7 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
                       title: 'On-device (offline)',
                       subtitle: 'Sherpa-ONNX / Whisper · English only · works without internet',
                       icon: Icons.smartphone_outlined,
-                      selected: !isLab,
+                      selected: settings.provider == SpeechProvider.offline,
                       onTap: () => _setProvider(SpeechProvider.offline),
                     ),
                     _providerCard(
