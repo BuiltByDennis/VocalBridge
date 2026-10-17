@@ -177,7 +177,14 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   // The main engine speaks the user's own language; this one always speaks
   // English (offline system voice is reliable for en-US).
   late final TtsEngine _englishTts = OfflineTtsEngine();
-  // Curated Twi ↔ English care glossary (offline, honest about coverage).
+  // TTS engines for Ghanaian languages OTHER than the profile's own,
+  // built lazily when a translation must be spoken in them (an
+  // English-profile user translating into Ewe, say). Khaya takes the
+  // language per request, so the engine must be built for the text's
+  // language — the profile-language engine would send the wrong code.
+  final Map<String, TtsEngine> _ghanaTtsEngines = {};
+  // Curated Ghanaian ↔ English care glossary (offline, honest about
+  // coverage).
   final TranslationService _translationService = DictionaryTranslationService();
 
   StreamSubscription<SpeechEngineEvent>? _eventSub;
@@ -263,16 +270,16 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     final khayaSettings = await KhayaSettings.load();
     final khayaReady = labSettings.provider == SpeechProvider.khaya &&
         khayaSettings.isConfigured;
-    if (profile.preferredLanguage == 'twi' &&
-        !labSettings.isConfigured &&
-        !khayaReady) {
+    const ghanaianNames = {'twi': 'Twi', 'ewe': 'Ewe', 'dagbani': 'Dagbani'};
+    final ghanaianName = ghanaianNames[profile.preferredLanguage];
+    if (ghanaianName != null && !labSettings.isConfigured && !khayaReady) {
       state = state.copyWith(
         engineState: UiEngineState.error,
         errorMessage: labSettings.provider == SpeechProvider.khaya
-            ? 'Twi via Khaya needs a Khaya API key — there is no on-device Twi model. '
+            ? '$ghanaianName via Khaya needs a Khaya API key — there is no on-device $ghanaianName model. '
                 'Open Settings → Speech Provider and add your Khaya subscription key to enable it.'
-            : 'Twi needs the UG HCI Lab speech API — there is no on-device Twi model. '
-                'Open Settings → Speech Provider and add your API key to enable it.',
+            : '$ghanaianName needs a cloud speech provider — there is no on-device $ghanaianName model. '
+                'Open Settings → Speech Provider and add your UG HCI Lab or Khaya API key to enable it.',
       );
       return;
     }
@@ -282,12 +289,19 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         _configSignature(profile, labSettings, speechProfile.conditionKey, khayaSettings);
 
     // Subscribe to Phrasebook — quick phrases follow the active
-    // language (Twi phrases carry a 'Twi · …' category) so the strip
-    // never mixes languages the person isn't speaking.
+    // language (Ghanaian phrases carry a 'Twi · …' / 'Ewe · …'
+    // category) so the strip never mixes languages the person isn't
+    // speaking.
     _phrasebookSub = _phrasebookRepository.watchAllPhrases().listen((phrases) {
-      final isTwi = state.selectedLanguage == 'twi';
+      const prefixes = {'twi': 'Twi', 'ewe': 'Ewe'};
+      final prefix = prefixes[state.selectedLanguage];
+      bool isGhanaian(PhrasebookEntry p) =>
+          (p.category ?? '').startsWith('Twi') ||
+          (p.category ?? '').startsWith('Ewe');
       final filtered = phrases
-          .where((p) => (p.category ?? '').startsWith('Twi') == isTwi)
+          .where((p) => prefix != null
+              ? (p.category ?? '').startsWith(prefix)
+              : !isGhanaian(p))
           .take(8)
           .toList();
       state = state.copyWith(quickPhrases: filtered);
@@ -566,6 +580,9 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   Future<void> stopSpeaking() async {
     await _ttsEngine.stop();
     await _englishTts.stop();
+    for (final engine in _ghanaTtsEngines.values) {
+      await engine.stop();
+    }
     state = state.copyWith(isSpeaking: false);
   }
 
@@ -583,26 +600,69 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     );
   }
 
-  // ── Bidirectional translation (Twi ↔ English, care scenario) ──
+  // ── Bidirectional translation (Ghanaian ↔ English, care scenario) ──
+
+  /// Which Ghanaian language an English speaker's speech is translated
+  /// INTO — the patient's language. The transcription screen offers
+  /// the choice (Twi / Ewe); Twi is the default, as before Ewe opened.
+  String _englishTargetLanguage = 'twi';
 
   /// (from, to) app language codes for the current UI language, or null
   /// when the pair is not supported.
   (String, String)? _translationPair() {
-    if (state.selectedLanguage == 'twi') return ('twi', 'en_GH');
-    if (state.selectedLanguage == 'en_GH') return ('en_GH', 'twi');
+    const ghanaian = {'twi', 'ewe'};
+    if (ghanaian.contains(state.selectedLanguage)) {
+      return (state.selectedLanguage, 'en_GH');
+    }
+    if (state.selectedLanguage == 'en_GH') {
+      return ('en_GH', _englishTargetLanguage);
+    }
     return null;
   }
 
+  static String _languageLabel(String code) =>
+      switch (code) { 'twi' => 'Twi', 'ewe' => 'Ewe', _ => 'English' };
+
   String get _translationSourceLabel =>
-      state.selectedLanguage == 'twi' ? 'Twi' : 'English';
+      _languageLabel(state.selectedLanguage);
 
-  String get _translationTargetLabel =>
-      state.selectedLanguage == 'twi' ? 'English' : 'Twi';
+  String get _translationTargetLabel {
+    final pair = _translationPair();
+    return pair == null ? '' : _languageLabel(pair.$2);
+  }
 
-  /// Lab language code of the translation target — picks the voice that
-  /// reads the translation aloud ('en' → English voice, 'tw' → Twi voice).
-  String get _translationTargetCode =>
-      state.selectedLanguage == 'twi' ? 'en' : 'tw';
+  /// Voice code of the translation target — picks the voice that
+  /// reads the translation aloud ('en' → English voice, otherwise the
+  /// Ghanaian language code itself: 'twi' / 'ewe').
+  String get _translationTargetCode {
+    final pair = _translationPair();
+    if (pair == null) return '';
+    return pair.$2 == 'en_GH' ? 'en' : pair.$2;
+  }
+
+  /// Switches the Ghanaian language English speech translates into
+  /// and re-glosses the current utterance under the new pair.
+  void setEnglishTargetLanguage(String code) {
+    if (code != 'twi' && code != 'ewe') return;
+    if (_englishTargetLanguage == code) return;
+    _englishTargetLanguage = code;
+    final current = state.personalizedTranscript.isNotEmpty
+        ? state.personalizedTranscript
+        : state.rawTranscript;
+    final gloss = current.isEmpty ? null : _translateText(current);
+    final sourceLabel = _translationSourceLabel;
+    final targetLabel = _translationTargetLabel;
+    final targetCode = _translationTargetCode;
+    // copyWith cannot null the translation out, so rebuild from the
+    // cleared state and re-apply the (possibly gloss-less) labels.
+    var next = state.clearTranslation().copyWith(
+          translationSourceLabel: sourceLabel,
+          translationTargetLabel: targetLabel,
+          translationTargetCode: targetCode,
+        );
+    if (gloss != null) next = next.copyWith(translation: gloss);
+    state = next;
+  }
 
   /// Translates [text] for the current language pair. Returns null when
   /// unsupported or when the glossary has no entry (never a guess).
@@ -624,9 +684,30 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     await speakText(text);
   }
 
+  /// The TTS engine that speaks [appLanguage] ('twi' / 'ewe'): the
+  /// main engine when that IS the profile language, otherwise a
+  /// lazily built engine for the translation's language.
+  Future<TtsEngine> _ttsEngineFor(String appLanguage) async {
+    if (appLanguage == state.selectedLanguage) return _ttsEngine;
+    final cached = _ghanaTtsEngines[appLanguage];
+    if (cached != null) return cached;
+    final lab = await UgHciLabSettings.load();
+    final khaya = await KhayaSettings.load();
+    final engine = TtsEngineFactory.create(
+      provider: lab.provider,
+      labSettings: lab,
+      khayaSettings: khaya,
+      appLanguage: appLanguage,
+    );
+    await engine.initialize();
+    _ghanaTtsEngines[appLanguage] = engine;
+    return engine;
+  }
+
   /// Speaks [text] in the translation's (target) language — the voice the
   /// other person hears. English always uses the dedicated offline voice;
-  /// Twi uses the main engine (Lab TTS when the API is configured).
+  /// a Ghanaian target uses an engine built for THAT language (the main
+  /// engine when it matches the profile, a dedicated one otherwise).
   Future<void> speakTranslationText(String text) async {
     if (text.trim().isEmpty) return;
     if (state.isHighImpact && !state.hasConfirmedHighImpact) return;
@@ -636,7 +717,8 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       if (state.translationTargetCode == 'en') {
         await _englishTts.speak(text);
       } else {
-        await _ttsEngine.speak(text);
+        final engine = await _ttsEngineFor(state.translationTargetCode);
+        await engine.speak(text);
       }
     } catch (e) {
       state = state.copyWith(errorMessage: 'Failed to speak translation: $e');
