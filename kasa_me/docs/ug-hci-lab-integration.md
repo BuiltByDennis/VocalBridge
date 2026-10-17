@@ -132,3 +132,38 @@ failures were all in how the app read the responses. Fixed the same day:
   `test/speech/ug_hci_lab_response_test.dart` (21 tests).
 
 **Second provider:** Khaya AI (Ghana NLP) is available as an optional provider — see `docs/khaya-integration.md`. The Lab remains the hackathon path above.
+
+## 6. Latency — what is and isn't fixable from the app
+
+Field report, Oct 17 2026: round trips took very long on BOTH cloud
+providers, and the Lab dashboard showed requests sitting **In
+Progress for minutes** (ASR 10:37, TTS 10:43) — the Lab's own
+processing queue, on a day when its service was slow. No client
+change can make a provider's models faster; what the app controls
+is everything around that wait:
+
+- **Payloads are already minimal** — ASR uploads are 16 kHz mono
+  WAV, the smallest faithful representation of the utterance.
+- **English never waits** — it is on-device (Whisper + system TTS)
+  and effectively instant. Only Ghanaian-language calls pay network
+  + provider time.
+- **Repeated phrases are now instant** — synthesized speech is
+  cached in memory per provider/language/voice/text
+  (`TtsAudioCache`, 40 entries, LRU). Care communication repeats
+  the same phrases all day; the second "me pɛ aduane" does not call
+  the provider at all (and spends no quota).
+- **The wait is visible and escapable** — the home screen shows a
+  live "Waiting for the speech service… Ns" counter during
+  processing, with a **Cancel** that hands the UI back immediately
+  (the late result is swallowed; the provider may still finish —
+  and bill — the request in the background).
+- **TTS failures are no longer silent** — the cloud engines record
+  them (Last API responses) and surface them on the home screen
+  instead of swallowing them into a debug log.
+- **Choosing between providers is an empirical question** — the
+  Last API responses card records elapsed ms per call; compare Lab
+  vs Khaya on the same phrases and pick the faster one for the demo.
+
+Practical guidance: keep utterances short, demo on the best network
+available, and rehearse the exact demo phrases once — the TTS cache
+then makes every repetition after the first effectively instant.

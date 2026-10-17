@@ -71,3 +71,21 @@ no impaired-speech data.
 mapping and URIs, error-envelope parsing (including the Azure APIM
 auth shape), transcript parsing, request-body shape, chunking,
 audio extraction, and factory routing with its fallbacks.
+
+## Latency notes (Oct 17 field report)
+
+- Dennis's first Khaya **Test connection** timed out at the original
+  20 s cap on a `GET /languages` call — the gateway can be slow on
+  a first (cold) call, especially on mobile data. The test now saves
+  the key first, waits up to 45 s, and says plainly when a timeout
+  (rather than a rejection) is what happened. The Lab's test got the
+  same treatment (60 s; it spends a real synthesis).
+- A test trap found the same day: Test connection used to test the
+  *typed* key while the app ran on the *saved* one — a key could
+  "pass" here and never exist for the app. Both providers' tests now
+  persist before probing.
+- TTS through Khaya gets the same latency kit as the Lab path:
+  `TtsAudioCache` (repeat phrases replay instantly), next-chunk
+  prefetch, visible failures, and per-call elapsed times under
+  Last API responses — which is also how to compare Khaya vs Lab
+  speed honestly, on the same phrases, before choosing a demo path.
