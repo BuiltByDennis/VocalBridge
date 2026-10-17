@@ -93,6 +93,30 @@ class LabDiagnosticsStore {
     } catch (_) {}
   }
 
+  /// Records a TTS call that failed before any audio existed
+  /// (timeout, network, provider error) so the "Last API responses"
+  /// card explains a silent app instead of showing a stale success.
+  static Future<void> recordTtsFailure({
+    required String error,
+    required Duration elapsed,
+    String provider = 'UG HCI Lab',
+  }) async {
+    try {
+      await _storage.write(
+        key: _ttsKey,
+        value: jsonEncode({
+          'at': DateTime.now().toIso8601String(),
+          'provider': provider,
+          'statusCode': 0,
+          'elapsedMs': elapsed.inMilliseconds,
+          'contentType': '',
+          'byteCount': 0,
+          'detectedFormat': 'failed: $error',
+        }),
+      );
+    } catch (_) {}
+  }
+
   static Future<LabDiagnosticsSnapshot> load() async {
     Map<String, dynamic>? asr;
     Map<String, dynamic>? tts;

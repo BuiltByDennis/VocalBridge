@@ -10,6 +10,7 @@ import '../../core/logging/app_logger.dart';
 import '../khaya/khaya_api_error.dart';
 import '../khaya/khaya_config.dart';
 import '../ug_hci_lab/lab_diagnostics_store.dart';
+import 'tts_audio_cache.dart';
 import 'tts_engine.dart';
 import 'ug_hci_lab_tts_engine.dart';
 
@@ -73,6 +74,7 @@ class KhayaTtsEngine implements TtsEngine {
     if (_isSpeaking) await stop();
 
     _isSpeaking = true;
+    final speakStopwatch = Stopwatch()..start();
     try {
       final chunks = chunkText(text.trim());
       AppLogger.log('KHAYA',
@@ -82,11 +84,11 @@ class KhayaTtsEngine implements TtsEngine {
       Future<http.Response>? pending;
       for (var i = 0; i < chunks.length; i++) {
         if (!_isSpeaking) break; // stop() called mid-playback
-        pending ??= _synthesizeWithRetry(chunks[i]);
+        pending ??= _synthesizeChunk(chunks[i]);
         final current = pending;
         pending = null;
         if (i + 1 < chunks.length) {
-          pending = _synthesizeWithRetry(chunks[i + 1]);
+          pending = _synthesizeChunk(chunks[i + 1]);
           // If playback stops before this future is awaited, its
           // error must not become an unhandled async error.
           pending.ignore();
@@ -96,6 +98,13 @@ class KhayaTtsEngine implements TtsEngine {
       AppLogger.log('KHAYA', 'KhayaTtsEngine finished speaking.');
     } catch (e, stack) {
       AppLogger.error('KHAYA', 'KhayaTtsEngine failed', e, stack);
+      await LabDiagnosticsStore.recordTtsFailure(
+        error: e.toString(),
+        elapsed: speakStopwatch.elapsed,
+        provider: 'Khaya AI',
+      );
+      // Surface the failure — a silent app reads as a broken app.
+      rethrow;
     } finally {
       _isSpeaking = false;
       try {
@@ -135,6 +144,31 @@ class KhayaTtsEngine implements TtsEngine {
     await _player!.processingStateStream.firstWhere(
       (s) => s == ProcessingState.completed || s == ProcessingState.idle,
     );
+  }
+
+  /// Cache-aware synthesis: a chunk this provider + language +
+  /// voice has already synthesized replays from memory instead of
+  /// paying Khaya's latency again — care phrases repeat all day.
+  Future<http.Response> _synthesizeChunk(String chunk) async {
+    final key = TtsAudioCache.keyFor(
+      provider: 'khaya',
+      language: _language,
+      voice: settings.speakerId,
+      text: chunk,
+    );
+    final cached = TtsAudioCache.get(key);
+    if (cached != null) {
+      AppLogger.log('KHAYA', 'Khaya TTS cache hit — replaying instantly.');
+      return http.Response.bytes(cached, 200,
+          headers: {'content-type': 'audio/wav'});
+    }
+    final response = await _synthesizeWithRetry(chunk);
+    try {
+      TtsAudioCache.put(key, extractAudio(response).$1);
+    } catch (_) {
+      // Extraction errors surface in _speakChunk; never cache them.
+    }
+    return response;
   }
 
   /// POSTs one chunk, retrying transient failures (5xx / SYSTEM_ERROR
