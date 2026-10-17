@@ -17,7 +17,7 @@ own low confidence in the wrong places, and has no memory of how *this*
 person says *this* word. Kasa Me's answer is a personal layer:
 
 - **Calibration** — guided phrase practice (English checked by the
-  recognizer; Twi recorded as on-device voice samples) that seeds the
+  recognizer; Twi and Ewe recorded as on-device voice samples) that seeds the
   learning system and feeds the Accuracy Score.
 - **Correction memory with evidence tiers** — when the app mishears and
   the user fixes a word, the fix is remembered (tentative → probable →
@@ -29,9 +29,9 @@ person says *this* word. Kasa Me's answer is a personal layer:
 - **An Accuracy Score that depends on training** — 50% recognizer
   confidence on everyday speech, 30% calibration performance, 20% how
   rarely the user still has to correct the app. Training visibly pays.
-- **Communication without speaking at all** — phrasebook (English + a
-  curated Twi phrasebook), quick phrases, tap-to-speak, dwell control,
-  and a Twi ↔ English translation card so a message is understood even
+- **Communication without speaking at all** — phrasebook (English + curated
+  Twi and Ewe phrasebooks), quick phrases, tap-to-speak, dwell control,
+  and a Ghanaian ↔ English translation card so a message is understood even
   when speech is not possible in the moment.
 
 All training data — calibration audio, corrections, profiles — is
@@ -99,13 +99,13 @@ out, and fatigue makes long interactions costly.
   patient listening while the person searches for a word, and raised
   mic gain for a weakened voice.
 - The **phrasebook is a word-finding aid**: saved personal and care
-  phrases (including the full Twi set) are visible, tappable, and
+  phrases (including the full Twi and Ewe sets) are visible, tappable, and
   spoken aloud — communication does not depend on retrieving the word
   under pressure.
 - Phrase biasing favours the person's frequent phrases in recognition,
   shrinking the gap between attempted and understood speech.
 - Auto-speak and the translation card let a caregiver hear the message
-  in English even when the patient speaks Twi, and vice versa —
+  in English even when the patient speaks Twi or Ewe, and vice versa —
   critical in Ghanaian hospital and home-care settings.
 - Progress is visible: calibration and the Accuracy Score give the
   person (and their therapist/family) a concrete sense of the app
@@ -137,8 +137,8 @@ general recognizer. Familiar listeners succeed because they have
    behaviour and listening presets change immediately, app-wide, with
    no restart.
 2. **Calibrate** — read the guided phrases (English is checked live;
-   Twi builds a voice-sample library on the phone without spending
-   Lab recognition quota). Mismatches automatically become corrections.
+   Twi and Ewe build a voice-sample library on the phone without spending
+   cloud recognition quota). Mismatches automatically become corrections.
 3. **Correct in the moment** — tap a misheard word in conversation and
    fix it. Corrections climb the evidence tiers and start applying
    automatically.
@@ -152,8 +152,13 @@ general recognizer. Familiar listeners succeed because they have
   the app today; adaptation happens in the personalization layer
   around them. Calibration audio is saved on-device so per-user model
   adaptation (the `research/` fine-tuning track) can use it later.
-- Twi calibration is recorded, not recognizer-checked, to protect the
-  Lab API's strict per-key quotas (10 ASR requests/day).
+- Ghanaian calibration (Twi, Ewe) is recorded, not recognizer-checked,
+  to protect the Lab API's strict per-key quotas (10 ASR requests/day).
+- Ewe opened fully in v1.3.0 with the same feature set as Twi; its
+  curated phrase set was authored for this build and awaits review by
+  a native Ewe speaker before clinical use. Khaya lists Ewe
+  explicitly; the Lab gateway infers language from audio, so Lab-side
+  Ewe recognition is unverified until field tests confirm it.
 - Translation is a curated dictionary with a word-for-word gloss
   fallback for fully-known vocabulary — it never guesses, and says so
   when a phrase is beyond it.
