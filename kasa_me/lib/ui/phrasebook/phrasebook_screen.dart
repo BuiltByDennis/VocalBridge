@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
@@ -75,7 +77,11 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
       _tts.dispose();
       _initTts();
     }
-    _tts.speak(entry.phrase);
+    // Fire-and-forget: cloud engines now surface failures by
+    // throwing (the home screen shows them); here the failure is
+    // recorded in the diagnostics store instead, so guard the
+    // future explicitly rather than letting it go unhandled.
+    unawaited(_tts.speak(entry.phrase).catchError((_) {}));
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../core/accessibility/accessibility_settings.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -144,6 +146,14 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
                       ),
                 ),
               ),
+              if (state.engineState == UiEngineState.processing) ...[
+                const SizedBox(height: 6),
+                _ProcessingElapsed(isHC: _isHC),
+                TextButton(
+                  onPressed: () => notifier.cancelProcessing(),
+                  child: const Text('Cancel — taking too long'),
+                ),
+              ],
               if (state.partialTranscript.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
@@ -331,6 +341,48 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Live "how long have we been waiting" line shown while the speech
+/// provider processes a recording — a slow cloud call should never
+/// look like a frozen app. Mounted only while processing, so the
+/// count starts when the wait starts.
+class _ProcessingElapsed extends StatefulWidget {
+  final bool isHC;
+  const _ProcessingElapsed({required this.isHC});
+
+  @override
+  State<_ProcessingElapsed> createState() => _ProcessingElapsedState();
+}
+
+class _ProcessingElapsedState extends State<_ProcessingElapsed> {
+  int _seconds = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _seconds++);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Waiting for the speech service… ${_seconds}s',
+      style: TextStyle(
+        fontSize: 13,
+        color: AppTheme.pageTextSecondary(highContrast: widget.isHC),
       ),
     );
   }
