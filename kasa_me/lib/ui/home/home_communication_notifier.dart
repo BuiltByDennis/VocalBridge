@@ -718,16 +718,25 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   /// other person hears. English always uses the dedicated offline voice;
   /// a Ghanaian target uses an engine built for THAT language (the main
   /// engine when it matches the profile, a dedicated one otherwise).
-  Future<void> speakTranslationText(String text) async {
+  ///
+  /// [targetCode] is the language THAT translation was made into. The
+  /// message list passes its own stored code: using only the current
+  /// state's code would read an older message's translation with
+  /// whatever language happens to be targeted NOW (e.g. a Twi gloss
+  /// read by the English voice after the target was switched).
+  Future<void> speakTranslationText(String text, {String? targetCode}) async {
     if (text.trim().isEmpty) return;
     if (state.isHighImpact && !state.hasConfirmedHighImpact) return;
 
+    final code = (targetCode != null && targetCode.isNotEmpty)
+        ? targetCode
+        : _translationTargetCode;
     state = state.copyWith(isSpeaking: true);
     try {
-      if (state.translationTargetCode == 'en') {
+      if (code == 'en') {
         await _englishTts.speak(text);
       } else {
-        final engine = await _ttsEngineFor(state.translationTargetCode);
+        final engine = await _ttsEngineFor(code);
         await engine.speak(text);
       }
     } catch (e) {
@@ -767,6 +776,20 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         _ttsEngine.dispose();
       } catch (_) {}
     }
+    // The per-language translation engines must go too — on every
+    // teardown, built or not. They are created lazily from the
+    // settings of their moment: an engine built before a provider
+    // or key was configured is the OFFLINE (en-US) fallback, and one
+    // built under an old key keeps that snapshot. Leaving them
+    // cached across a rebuild made Twi/Ewe translations keep being
+    // read aloud by the English voice (or by a dead engine) long
+    // after the provider was fixed.
+    for (final engine in _ghanaTtsEngines.values) {
+      try {
+        engine.dispose();
+      } catch (_) {}
+    }
+    _ghanaTtsEngines.clear();
   }
 
   /// Re-reads the profile and speech-provider settings and rebuilds the

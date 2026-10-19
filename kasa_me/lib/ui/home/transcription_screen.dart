@@ -465,8 +465,9 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
                     text: msg.translation!,
                     fontSize: scaledFontSize,
                     isHC: isHC,
-                    onSpeak: () =>
-                        notifier.speakTranslationText(msg.translation!),
+                    onSpeak: () => notifier.speakTranslationText(
+                        msg.translation!,
+                        targetCode: msg.translationTargetCode),
                   ),
                 ),
               ],
