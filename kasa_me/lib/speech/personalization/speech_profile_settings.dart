@@ -59,11 +59,20 @@ class SpeechProfileSettingsNotifier
     _load();
   }
 
+  /// Incremented on every [update]. A storage load that finishes after
+  /// a change landed must not resurrect the older value it read — that
+  /// race could silently revert the person's speech profile to the
+  /// previous condition (or back to "typical").
+  int _writeGeneration = 0;
+
   Future<void> _load() async {
-    state = await SpeechProfileSettings.load();
+    final generation = _writeGeneration;
+    final loaded = await SpeechProfileSettings.load();
+    if (generation == _writeGeneration) state = loaded;
   }
 
   Future<void> update(SpeechProfileSettings settings) async {
+    _writeGeneration++;
     state = settings;
     await settings.persist();
   }

@@ -210,7 +210,14 @@ class SherpaSpeechEngine implements SpeechEngine {
 
       final result = RecognitionResult(
         text: text,
-        confidence: text.isNotEmpty ? 0.90 : null,
+        // No confidence score: this engine exposes none, and the
+        // fabricated 0.90 constant it used to report corrupted the
+        // personalization gates — against the profile gates (0.80
+        // typical / 0.85 stammer / 0.90 cleft / 0.95 cerebral palsy
+        // and stroke) a fixed 0.90 silently decided which profiles
+        // got their learned corrections and which never did. Null
+        // means "unknown", which EvidenceTracker handles honestly.
+        confidence: null,
         processingTime: elapsedInference,
         audioDuration: audioDuration.inMilliseconds > 0
             ? audioDuration

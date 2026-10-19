@@ -125,11 +125,19 @@ class KhayaSettingsNotifier extends StateNotifier<KhayaSettings> {
     _load();
   }
 
+  /// Incremented on every [update]. A storage load that finishes after
+  /// a save landed must not resurrect the older value it read — that
+  /// race could bring back an empty API key over the one just saved.
+  int _writeGeneration = 0;
+
   Future<void> _load() async {
-    state = await KhayaSettings.load();
+    final generation = _writeGeneration;
+    final loaded = await KhayaSettings.load();
+    if (generation == _writeGeneration) state = loaded;
   }
 
   Future<void> update(KhayaSettings settings) async {
+    _writeGeneration++;
     state = settings;
     await settings.persist();
   }

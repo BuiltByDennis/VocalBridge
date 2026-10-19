@@ -42,7 +42,7 @@ class PersonalizationSafetyGuard {
     return true;
   }
 
-  String applySafeReplacements(String rawTranscript, {double baseConfidence = 0.8, double minConfidenceThreshold = 0.5, double confidenceGate = 0.8}) {
+  String applySafeReplacements(String rawTranscript, {double? baseConfidence, double minConfidenceThreshold = 0.5, double confidenceGate = 0.8, int probableMinFrequency = 3}) {
     if (rawTranscript.trim().isEmpty) return rawTranscript;
 
     final normRaw = _normalize(rawTranscript);
@@ -50,7 +50,7 @@ class PersonalizationSafetyGuard {
     // Single pass phrase correction check
     if (_learnedPhraseMappings.containsKey(normRaw)) {
       final mapping = _learnedPhraseMappings[normRaw]!;
-      if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence, confidenceGate: confidenceGate)) {
+      if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence, confidenceGate: confidenceGate, probableMinFrequency: probableMinFrequency)) {
         return mapping.intended;
       }
     }
@@ -63,7 +63,7 @@ class PersonalizationSafetyGuard {
       final cleanWord = _normalize(word);
       if (_learnedWordMappings.containsKey(cleanWord)) {
         final mapping = _learnedWordMappings[cleanWord]!;
-        if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence, confidenceGate: confidenceGate)) {
+        if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence, confidenceGate: confidenceGate, probableMinFrequency: probableMinFrequency)) {
           final replacement = mapping.intended;
           if (word.isNotEmpty && word[0] == word[0].toUpperCase()) {
             resultWords.add(replacement[0].toUpperCase() + replacement.substring(1));

@@ -176,11 +176,19 @@ class UgHciLabSettingsNotifier extends StateNotifier<UgHciLabSettings> {
     _load();
   }
 
+  /// Incremented on every [update]. A storage load that finishes after
+  /// a save landed must not resurrect the older value it read — that
+  /// race could bring back an empty API key over the one just saved.
+  int _writeGeneration = 0;
+
   Future<void> _load() async {
-    state = await UgHciLabSettings.load();
+    final generation = _writeGeneration;
+    final loaded = await UgHciLabSettings.load();
+    if (generation == _writeGeneration) state = loaded;
   }
 
   Future<void> update(UgHciLabSettings settings) async {
+    _writeGeneration++;
     state = settings;
     await settings.persist();
   }

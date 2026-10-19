@@ -67,6 +67,19 @@ class SpeechBehavior {
   /// Recommended microphone gain (1.0–4.0) for quieter voices.
   final double micGain;
 
+  /// EnergyVad energy threshold (RMS) derived from [vadSensitivity].
+  /// A patient profile (low sensitivity) lowers the threshold so
+  /// quiet, slow speech still registers as speech instead of being
+  /// treated as silence. Sensitivity 0.50 (typical) reproduces the
+  /// EnergyVad default of 250.
+  double get vadThresholdRms => 120 + vadSensitivity * 260;
+
+  /// EnergyVad patience: how many consecutive silent frames pass
+  /// before the listener decides the person has finished. A patient
+  /// profile waits through far more frames. Sensitivity 0.50
+  /// (typical) gives ~18 frames, near the EnergyVad default of 15.
+  int get vadMaxSilenceFrames => (25 * (1.0 - vadSensitivity) + 5).round();
+
   /// Plain-language summary of what changes, shown in Settings so the
   /// person knows exactly how the app treats them differently.
   final List<String> changes;

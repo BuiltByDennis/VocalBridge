@@ -121,8 +121,16 @@ class PersonalizationPipeline {
     final sanitized = NumberNormalizationService.normalizeGhanainCurrencyAndNumbers(fluencyCleaned);
     final personalized = safetyGuard.applySafeReplacements(
       sanitized,
-      baseConfidence: confidence ?? 0.8,
+      // Pass the recognizer's REAL confidence — including null.
+      // Substituting 0.8 for "unknown" (the old behaviour) broke the
+      // documented EvidenceTracker rule that an unavailable
+      // confidence lets probable corrections apply: providers that
+      // return no score (Khaya, the offline engines) behaved like a
+      // fake-0.8 engine, so the same speech profile acted
+      // differently on every backend.
+      baseConfidence: confidence,
       confidenceGate: behavior.correctionConfidenceGate,
+      probableMinFrequency: behavior.minMappingFrequency,
     );
 
     final wasChanged = personalized != rawTranscript;

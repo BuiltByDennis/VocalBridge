@@ -9,7 +9,15 @@ class EvidenceTracker {
   static const int probableMinFrequency = 3;
   static const int learnedMinFrequency = 5;
 
-  FrequencyTier getTier(int frequency) {
+  /// [probableMinFrequency] is the frequency at which a correction
+  /// becomes "probable". It is NOT fixed: the person's SpeechBehavior
+  /// sets it (SpeechBehavior.minMappingFrequency — 2 for cerebral
+  /// palsy / stroke / cleft, whose Settings copy promises corrections
+  /// after 2 examples; 3 otherwise). Before it was plumbed through,
+  /// this class silently used 3 for everyone, so frequency-2
+  /// corrections the repository had loaded for those profiles were
+  /// classified tentative here and never applied.
+  FrequencyTier getTier(int frequency, {int probableMinFrequency = 3}) {
     if (frequency >= learnedMinFrequency) return FrequencyTier.learned;
     if (frequency >= probableMinFrequency) return FrequencyTier.probable;
     return FrequencyTier.tentative;
@@ -19,8 +27,9 @@ class EvidenceTracker {
     required int frequency,
     double? confidence,
     double confidenceGate = 0.8,
+    int probableMinFrequency = 3,
   }) {
-    final tier = getTier(frequency);
+    final tier = getTier(frequency, probableMinFrequency: probableMinFrequency);
 
     switch (tier) {
       case FrequencyTier.tentative:
