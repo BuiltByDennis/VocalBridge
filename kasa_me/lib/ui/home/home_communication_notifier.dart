@@ -13,6 +13,7 @@ import '../../speech/personalization/personalization_pipeline.dart';
 import '../../speech/personalization/speech_behavior.dart';
 import '../../speech/personalization/speech_profile_settings.dart';
 import '../../speech/pipeline/streaming_audio_pipeline.dart';
+import '../../speech/vad/energy_vad.dart';
 import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/tts_engine_factory.dart';
 import '../../speech/tts/offline_tts_engine.dart';
@@ -338,6 +339,15 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     _pipeline = StreamingAudioPipeline(
       recorderService: _recorderService,
       speechEngine: _speechEngine,
+      // The person's speech profile drives the VAD: patient profiles
+      // (stammer, cerebral palsy, stroke) get a lower energy
+      // threshold and a longer silence patience. Before this the VAD
+      // always ran on hardcoded defaults, so the profile's listening
+      // presets never reached it.
+      vad: EnergyVad(
+        thresholdRms: _behavior.vadThresholdRms,
+        maxSilenceFrames: _behavior.vadMaxSilenceFrames,
+      ),
     );
     _enginesBuilt = true;
 

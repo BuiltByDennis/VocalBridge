@@ -7,8 +7,14 @@ void main() {
   test('PersonalizationSafetyGuard prevents cycles and cascading rewrites', () {
     final guard = PersonalizationSafetyGuard();
 
-    // Valid word replacement
-    expect(guard.validateAndAddWordMapping('waiter', 'water'), true);
+    // Valid word replacement. Frequency 5 is the "learned" tier —
+    // the frequency PersonalizationPipeline.applyCorrection uses for
+    // corrections the person explicitly teaches. (At the default
+    // frequency of 1 a mapping is only tentative and, by design,
+    // never auto-applies; no production caller adds one that low.)
+    expect(
+        guard.validateAndAddWordMapping('waiter', 'water', frequency: 5),
+        true);
 
     // Cycle attempt (water -> waiter)
     expect(guard.validateAndAddWordMapping('water', 'waiter'), false);
@@ -28,7 +34,8 @@ void main() {
 
   test('PersonalizationPipeline preserves rawTranscript and yields personalizedTranscript', () async {
     final guard = PersonalizationSafetyGuard();
-    guard.validateAndAddWordMapping('waiter', 'doctor');
+    // Frequency 5 = learned tier, as taught corrections are recorded.
+    guard.validateAndAddWordMapping('waiter', 'doctor', frequency: 5);
 
     final pipeline = PersonalizationPipeline(guard: guard);
     final res = await pipeline.processTranscript('I need to see the waiter');

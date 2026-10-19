@@ -40,17 +40,61 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
   bool _khayaTestOk = false;
   String _khayaSpeaker = '';
 
+  /// The values the form was built from. The settings notifiers load
+  /// from secure storage asynchronously, so on a fresh app launch
+  /// these can be the not-yet-loaded defaults (empty API keys) even
+  /// though the keys ARE saved — [_hydrateFromStorage] repairs the
+  /// fields from storage, and the snapshot tells it which fields the
+  /// user has not touched yet.
+  late final UgHciLabSettings _initialLab;
+  late final KhayaSettings _initialKhaya;
+
   @override
   void initState() {
     super.initState();
     final s = ref.read(ugHciLabSettingsProvider);
+    _initialLab = s;
     _baseUrlController = TextEditingController(text: s.baseUrl);
     _apiKeyController = TextEditingController(text: s.apiKey);
     _asrPathController = TextEditingController(text: s.asrPath);
     _ttsPathController = TextEditingController(text: s.ttsPath);
     final k = ref.read(khayaSettingsProvider);
+    _initialKhaya = k;
     _khayaKeyController = TextEditingController(text: k.apiKey);
     _khayaSpeaker = k.speakerId;
+    _hydrateFromStorage();
+  }
+
+  /// Fills the form with the values actually persisted in secure
+  /// storage. Without this, every app relaunch showed blank key
+  /// fields (the notifier's async load had not landed when the form
+  /// was built) and the user had to re-enter keys that were never
+  /// lost. Only fields still holding their initial snapshot value
+  /// are overwritten — anything the user already typed wins.
+  Future<void> _hydrateFromStorage() async {
+    final lab = await UgHciLabSettings.load();
+    final khaya = await KhayaSettings.load();
+    if (!mounted) return;
+    setState(() {
+      if (_baseUrlController.text == _initialLab.baseUrl) {
+        _baseUrlController.text = lab.baseUrl;
+      }
+      if (_apiKeyController.text == _initialLab.apiKey) {
+        _apiKeyController.text = lab.apiKey;
+      }
+      if (_asrPathController.text == _initialLab.asrPath) {
+        _asrPathController.text = lab.asrPath;
+      }
+      if (_ttsPathController.text == _initialLab.ttsPath) {
+        _ttsPathController.text = lab.ttsPath;
+      }
+      if (_khayaKeyController.text == _initialKhaya.apiKey) {
+        _khayaKeyController.text = khaya.apiKey;
+      }
+      if (_khayaSpeaker == _initialKhaya.speakerId) {
+        _khayaSpeaker = khaya.speakerId;
+      }
+    });
   }
 
   @override
@@ -65,9 +109,16 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
 
   Future<void> _save({bool showConfirmation = true}) async {
     final current = ref.read(ugHciLabSettingsProvider);
+    final typedKey = _apiKeyController.text.trim();
     final updated = current.copyWith(
       baseUrl: _baseUrlController.text.trim(),
-      apiKey: _apiKeyController.text.trim(),
+      // A blank field must never wipe a saved key — e.g. when Save is
+      // tapped before the stored values have hydrated into the form.
+      // Clearing a key deliberately is done by replacing it, and the
+      // engines report a missing key with a clear message.
+      apiKey: typedKey.isEmpty && current.apiKey.isNotEmpty
+          ? current.apiKey
+          : typedKey,
       asrPath: _asrPathController.text.trim().isEmpty
           ? UgHciLabSettings.defaultAsrPath
           : _asrPathController.text.trim(),
@@ -199,8 +250,13 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
 
   Future<void> _saveKhaya({bool showConfirmation = true}) async {
     final current = ref.read(khayaSettingsProvider);
+    final typedKey = _khayaKeyController.text.trim();
     await ref.read(khayaSettingsProvider.notifier).update(current.copyWith(
-          apiKey: _khayaKeyController.text.trim(),
+          // Same guard as the Lab key: a blank field (form not yet
+          // hydrated from storage) must never wipe the saved key.
+          apiKey: typedKey.isEmpty && current.apiKey.isNotEmpty
+              ? current.apiKey
+              : typedKey,
           speakerId: _khayaSpeaker,
         ));
     if (showConfirmation && mounted) {
