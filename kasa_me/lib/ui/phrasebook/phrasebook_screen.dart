@@ -299,6 +299,8 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
     final phraseCtrl = TextEditingController();
     final categoryCtrl = TextEditingController();
 
+    // Both controllers are dialog-local; disposed when the dialog
+    // closes (see .then below) instead of leaking on every add.
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -347,6 +349,9 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      phraseCtrl.dispose();
+      categoryCtrl.dispose();
+    });
   }
 }

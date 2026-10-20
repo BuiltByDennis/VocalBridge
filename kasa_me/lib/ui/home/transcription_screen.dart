@@ -577,6 +577,8 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     int messageIndex,
   ) {
     final controller = TextEditingController(text: word);
+    // Disposed when the dialog closes (see .then below) — a dialog-local
+    // controller that is never disposed leaks on every correction.
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -641,7 +643,7 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   Widget _actionButton({
