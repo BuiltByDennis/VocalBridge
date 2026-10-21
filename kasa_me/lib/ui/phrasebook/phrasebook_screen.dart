@@ -37,10 +37,11 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  /// Language the current TTS engine was built for. Khaya takes the
-  /// language in every request, so the engine is rebuilt when the
-  /// tapped phrase's language differs (Twi phrases carry a 'Twi · …'
-  /// category). The Lab and offline engines ignore the distinction.
+  /// Language the current TTS engine was built for. Every engine
+  /// speaks the language it was built for (Khaya takes it in every
+  /// request; the offline engine requests that language's system
+  /// voice), so the engine is rebuilt when the tapped phrase's
+  /// language differs (Twi phrases carry a 'Twi · …' category).
   String _ttsLanguage = 'en_GH';
 
   @override

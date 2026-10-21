@@ -38,6 +38,9 @@ class TtsEngineFactory {
         language: labSettings.labLanguageCode(appLanguage),
       );
     }
-    return OfflineTtsEngine();
+    // Offline fallback — built for the SAME language as every other
+    // branch, so Twi text is never handed to an English-only voice
+    // just because no cloud key is configured yet.
+    return OfflineTtsEngine(appLanguage: appLanguage);
   }
 }
