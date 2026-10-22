@@ -595,12 +595,59 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
               ),
               autofocus: true,
             ),
+            const SizedBox(height: 8),
+            const Text(
+              "Didn't say this word at all? Delete it — Kasa Me will "
+              "leave it out and won't speak it again.",
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              // Captured before the await so no BuildContext crosses
+              // the async gap.
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+              final msg = _messages[messageIndex];
+              final newPersonalized =
+                  await notifier.applyWordCorrection(word, '', msg.raw);
+              // A deletion is training too: refresh stats/engines.
+              ref.read(speechConfigRevisionProvider.notifier).state++;
+              if (mounted) {
+                setState(() {
+                  _messages[messageIndex] = _Message(
+                    raw: msg.raw,
+                    personalized: newPersonalized,
+                    confidence: msg.confidence,
+                    timestamp: msg.timestamp,
+                    translation: notifier.translateFor(newPersonalized),
+                    translationSourceLabel: notifier.translationSourceLabel,
+                    translationTargetLabel: notifier.translationTargetLabel,
+                    translationTargetCode: notifier.translationTargetCode,
+                  );
+                });
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Deleted "$word" — Kasa Me won\'t say it again'),
+                    backgroundColor: Colors.green.shade600,
+                  ),
+                );
+                // Re-speak the sentence WITHOUT the deleted word.
+                if (newPersonalized.trim().isNotEmpty) {
+                  notifier.speakText(newPersonalized);
+                }
+              }
+              navigator.pop();
+            },
+            child: const Text('Delete word',
+                style: TextStyle(color: Colors.red)),
           ),
           ElevatedButton(
             onPressed: () async {

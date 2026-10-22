@@ -266,9 +266,9 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
                 Text(
                     state.providerLabel == 'Offline'
                         ? 'On-device engine'
-                        : 'UG HCI Lab API',
+                        : 'Online engine',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                Text(state.providerLabel == 'Offline' ? 'Offline Mode' : 'Lab API',
+                Text(state.providerLabel == 'Offline' ? 'Offline' : 'Online',
                     style: TextStyle(
                         fontSize: 12,
                         color: Colors.green.shade600,
