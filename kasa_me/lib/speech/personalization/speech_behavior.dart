@@ -178,27 +178,93 @@ class SpeechBehavior {
 /// clearly said twice for emphasis in separate clauses is rare in AAC
 /// use, and the safety rule here favours cleaning the common stammer
 /// patterns:
-///   "I I I want water"   → "I want water"
-///   "wa-wa-water"        → "water"
-///   "m-m-me"             → "me"
-///   "t-t-today we go"    → "today we go"
-/// Legitimate hyphenated words ("well-known", "mother-in-law") are left
-/// alone: their parts are not prefixes of the final part.
+///   "I I I want water"     → "I want water"   (repeated whole word)
+///   "wa-wa-water"          → "water"          (hyphenated part-words)
+///   "m-m-me"               → "me"
+///   "t-t-today we go"      → "today we go"
+///   "wa wa water"          → "water"          (spaced part-words —
+///   "wa water"             → "water"           recognizers rarely
+///   "w w want"             → "want"            emit the hyphens)
+///   "I want I want water"  → "I want water"   (phrase restart)
+///
+/// Safety: a fragment is only dropped when it is the beginning of the
+/// very next word AND is not itself a complete word — "we went",
+/// "he held", "a nurse" and Twi's "na nana" pass through untouched.
+/// Legitimate hyphenated words ("well-known", "mother-in-law") are
+/// left alone: their parts are not prefixes of the final part.
 class DisfluencyNormalizer {
+  /// Complete words (English + Twi function words) that begin longer
+  /// words but must never be treated as a stammer fragment.
+  static const _notFragments = {
+    'a', 'i', 'an', 'as', 'at', 'be', 'by', 'do', 'go', 'he', 'if',
+    'in', 'is', 'it', 'me', 'my', 'no', 'of', 'oh', 'on', 'or', 'so',
+    'to', 'up', 'us', 'we', 'am',
+    // Twi function words that begin longer Twi words.
+    'na', 'ne', 'wo', 'se', 'ma', 'da', 'ya', 'ye',
+  };
+
   static String collapse(String input) {
     if (input.trim().isEmpty) return input;
-    final tokens = input.split(RegExp(r'\s+'));
+    var tokens =
+        input.split(RegExp(r'\s+')).map(_collapsePartWord).toList();
+    tokens = _collapsePhraseRestarts(tokens);
     final out = <String>[];
-    for (final raw in tokens) {
-      final token = _collapsePartWord(raw);
-      if (out.isNotEmpty &&
-          _wordKey(out.last) == _wordKey(token) &&
-          _wordKey(token).isNotEmpty) {
-        continue; // immediate repetition — disfluency, keep the first
+    for (final token in tokens) {
+      final key = _wordKey(token);
+      if (out.isNotEmpty && key.isNotEmpty) {
+        final prevKey = _wordKey(out.last);
+        if (key == prevKey) {
+          continue; // immediate repetition — disfluency, keep the first
+        }
+        // Spaced part-word: the previous token was only the beginning
+        // of THIS word ("wa water", "th the nurse") — the person has
+        // now said the whole word, so the fragment goes.
+        if (_isFragmentOf(prevKey, key)) {
+          out[out.length - 1] = token;
+          continue;
+        }
       }
       out.add(token);
     }
     return out.join(' ');
+  }
+
+  /// True when [fragment] reads as a stammered start of [word]: a
+  /// short (1–3 letter) strict prefix that is not a complete word.
+  static bool _isFragmentOf(String fragment, String word) {
+    if (fragment.isEmpty || fragment.length > 3) return false;
+    if (word.length <= fragment.length) return false;
+    if (_notFragments.contains(fragment)) return false;
+    return word.startsWith(fragment);
+  }
+
+  /// Collapses immediately repeated 2–3 word sequences ("I want I want
+  /// water", "let me let me go") — the phrase-restart pattern, where
+  /// the speaker starts the phrase again — to a single instance.
+  static List<String> _collapsePhraseRestarts(List<String> tokens) {
+    final list = List<String>.of(tokens);
+    var changed = true;
+    while (changed) {
+      changed = false;
+      restart:
+      for (var n = 3; n >= 2; n--) {
+        for (var i = 0; i + 2 * n <= list.length; i++) {
+          var same = true;
+          for (var k = 0; k < n; k++) {
+            if (_wordKey(list[i + k]) != _wordKey(list[i + n + k])) {
+              same = false;
+              break;
+            }
+          }
+          if (same) {
+            list.removeRange(i + n, i + 2 * n);
+            changed = true;
+            break restart;
+          }
+        }
+      }
+    }
+    return list;
   }
 
   static String _collapsePartWord(String token) {

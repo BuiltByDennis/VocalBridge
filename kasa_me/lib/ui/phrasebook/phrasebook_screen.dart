@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../core/accessibility/accessibility_settings.dart';
 import '../../storage/database/app_database.dart';
+import '../../speech/connectivity/network_mode.dart';
 import '../../speech/khaya/khaya_config.dart';
 import '../../speech/tts/tts_engine.dart';
 import '../../speech/tts/tts_engine_factory.dart';
@@ -57,14 +58,26 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
       _tts.dispose();
       _initTts();
     });
+    // Khaya auto-switch: the network dropping or returning rebuilds
+    // the phrasebook voice too, like the home engines.
+    ref.listen<AsyncValue<bool>>(networkOnlineProvider, (_, __) {
+      _tts.dispose();
+      _initTts();
+    });
   }
 
   void _initTts() {
     final settings = ref.read(ugHciLabSettingsProvider);
+    final khaya = ref.read(khayaSettingsProvider);
+    final online = ref.read(networkOnlineProvider).valueOrNull ?? true;
     _tts = TtsEngineFactory.create(
-      provider: settings.provider,
+      provider: effectiveSpeechProvider(
+        selected: settings.provider,
+        khayaConfigured: khaya.isConfigured,
+        online: online,
+      ),
       labSettings: settings,
-      khayaSettings: ref.read(khayaSettingsProvider),
+      khayaSettings: khaya,
       appLanguage: _ttsLanguage,
     );
     _tts.initialize();
