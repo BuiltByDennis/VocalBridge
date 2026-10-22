@@ -79,9 +79,14 @@ class PersonalizationPipeline {
     int frequency = 5,
   }) async {
     final isPhrase = original.contains(' ') || corrected.contains(' ');
-    
+
     bool added;
-    if (isPhrase) {
+    if (corrected.trim().isEmpty) {
+      // Word deletion: the user removed a word the recognizer
+      // inserted. Teach it as a deletion so the word is dropped —
+      // and never spoken — from now on.
+      added = safetyGuard.validateAndAddWordDeletion(original, frequency: frequency);
+    } else if (isPhrase) {
       added = safetyGuard.validateAndAddPhraseMapping(original, corrected, frequency: frequency);
     } else {
       added = safetyGuard.validateAndAddWordMapping(original, corrected, frequency: frequency);

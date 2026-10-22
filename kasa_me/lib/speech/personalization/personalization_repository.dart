@@ -15,7 +15,10 @@ class PersonalizationRepository {
     final obs = _normalize(original);
     final intd = _normalize(corrected);
 
-    if (obs.isEmpty || intd.isEmpty || obs == intd) return;
+    if (obs.isEmpty || obs == intd) return;
+    // An empty intended is a word DELETION (single word only) — it
+    // must persist, or the deleted word comes back after a relaunch.
+    if (intd.isEmpty && obs.contains(' ')) return;
 
     final isPhrase = obs.contains(' ') || intd.contains(' ');
 

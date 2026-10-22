@@ -29,6 +29,20 @@ class PersonalizationSafetyGuard {
     return true;
   }
 
+  /// Teaches that [observed] should be DELETED: the recognizer
+  /// inserted a word the person never said, and they removed it in
+  /// the correction dialog. Stored as a mapping to the empty string —
+  /// [applySafeReplacements] drops the word from every future
+  /// transcript, so it is never displayed or spoken again. Deliberately
+  /// separate from [validateAndAddWordMapping], whose empty-target
+  /// rejection protects normal corrections from blank saves.
+  bool validateAndAddWordDeletion(String observed, {int frequency = 1}) {
+    final obs = _normalize(observed);
+    if (obs.isEmpty || obs.contains(' ')) return false;
+    _learnedWordMappings[obs] = (intended: '', frequency: frequency);
+    return true;
+  }
+
   bool validateAndAddPhraseMapping(String observedPhrase, String intendedPhrase, {int frequency = 1}) {
     final obs = _normalize(observedPhrase);
     final intd = _normalize(intendedPhrase);
@@ -65,6 +79,11 @@ class PersonalizationSafetyGuard {
         final mapping = _learnedWordMappings[cleanWord]!;
         if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence, confidenceGate: confidenceGate, probableMinFrequency: probableMinFrequency)) {
           final replacement = mapping.intended;
+          if (replacement.isEmpty) {
+            // Learned deletion — the word is dropped entirely, so it
+            // is neither shown nor spoken.
+            continue;
+          }
           if (word.isNotEmpty && word[0] == word[0].toUpperCase()) {
             resultWords.add(replacement[0].toUpperCase() + replacement.substring(1));
           } else {
