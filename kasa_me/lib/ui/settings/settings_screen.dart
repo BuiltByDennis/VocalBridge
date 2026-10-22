@@ -108,7 +108,7 @@ class SettingsScreen extends ConsumerWidget {
                       context,
                       icon: Icons.info_outline,
                       title: 'About Kasa Me',
-                      subtitle: 'Version 1.3.3 · Assistive speech for Ghana · 2026',
+                      subtitle: 'Version 1.3.4 · Assistive speech for Ghana · 2026',
                       onTap: () => _showAboutDialog(context),
                     ),
                   ],
@@ -204,7 +204,7 @@ class SettingsScreen extends ConsumerWidget {
     showAboutDialog(
       context: context,
       applicationName: 'Kasa Me',
-      applicationVersion: '1.3.3',
+      applicationVersion: '1.3.4',
       applicationLegalese:
           '© 2026 VocalBridge. All rights reserved.\n\n'
           'Kasa Me gives people with speech impairments — stammering, cerebral palsy, stroke, cleft palate and more — a voice that learns how they speak.\n\n'
