@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +20,7 @@ import '../../speech/tts/tts_engine_factory.dart';
 import '../../speech/tts/offline_tts_engine.dart';
 import '../../speech/translation/translation_service.dart';
 import '../../speech/translation/dictionary_translation_service.dart';
+import '../../speech/connectivity/network_mode.dart';
 import '../../speech/khaya/khaya_config.dart';
 import '../../speech/ug_hci_lab/ug_hci_lab_config.dart';
 import '../../phrasebook/repositories/phrasebook_repository.dart';
@@ -200,6 +202,19 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
   bool _ignoreNextEngineResult = false;
   String? _activeSignature;
 
+  /// Last known network state. Khaya is the online mode: when the
+  /// network drops, the engines fall back to offline on their own
+  /// and return to Khaya when it comes back (see network_mode.dart).
+  bool _online = true;
+
+  /// Called when the network comes or goes; a change rebuilds the
+  /// engines with the provider that fits the network right now.
+  void setNetworkOnline(bool online) {
+    if (online == _online) return;
+    _online = online;
+    refreshConfiguration();
+  }
+
   /// The behaviour profile currently shaping recognition for this user.
   SpeechBehavior get behavior => _behavior;
 
@@ -269,25 +284,53 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     // actionable message instead of a missing-model crash.
     final labSettings = await UgHciLabSettings.load();
     final khayaSettings = await KhayaSettings.load();
-    final khayaReady = labSettings.provider == SpeechProvider.khaya &&
+
+    // Seed the network state from the platform so the FIRST build
+    // already fits the connection (the live listener keeps it
+    // current afterwards). Khaya is the online mode: selected +
+    // configured but offline ⇒ the engines are built offline, and
+    // they return to Khaya by themselves when the network does.
+    try {
+      _online =
+          isOnlineConnectivity(await Connectivity().checkConnectivity());
+    } catch (_) {
+      // No connectivity plugin (tests) — assume online.
+    }
+    final effectiveProvider = effectiveSpeechProvider(
+      selected: labSettings.provider,
+      khayaConfigured: khayaSettings.isConfigured,
+      online: _online,
+    );
+    final khayaReady = effectiveProvider == SpeechProvider.khaya &&
         khayaSettings.isConfigured;
+    final labReady = effectiveProvider == SpeechProvider.ugHciLab &&
+        labSettings.isConfigured;
     const ghanaianNames = {'twi': 'Twi', 'ewe': 'Ewe', 'dagbani': 'Dagbani'};
     final ghanaianName = ghanaianNames[profile.preferredLanguage];
-    if (ghanaianName != null && !labSettings.isConfigured && !khayaReady) {
+    if (ghanaianName != null && !labReady && !khayaReady) {
+      final autoOffline = labSettings.provider == SpeechProvider.khaya &&
+          khayaSettings.isConfigured &&
+          !_online;
       state = state.copyWith(
         engineState: UiEngineState.error,
-        errorMessage: labSettings.provider == SpeechProvider.khaya
-            ? '$ghanaianName via Khaya needs a Khaya API key — there is no on-device $ghanaianName model. '
-                'Open Settings → Speech Provider and add your Khaya subscription key to enable it.'
-            : '$ghanaianName needs a cloud speech provider — there is no on-device $ghanaianName model. '
-                'Open Settings → Speech Provider and add your UG HCI Lab or Khaya API key to enable it.',
+        errorMessage: autoOffline
+            ? 'You are offline — $ghanaianName needs the internet (Khaya), and there is no on-device $ghanaianName model. '
+                'Kasa Me reconnects by itself when the network returns. English still works offline: '
+                'switch your language to English in Settings to keep talking.'
+            : labSettings.provider == SpeechProvider.khaya
+                ? '$ghanaianName via Khaya needs a Khaya API key — there is no on-device $ghanaianName model. '
+                    'Open Settings → Speech Provider and add your Khaya subscription key to enable it.'
+                : '$ghanaianName needs a cloud speech provider — there is no on-device $ghanaianName model. '
+                    'Open Settings → Speech Provider and add your UG HCI Lab or Khaya API key to enable it.',
       );
       return;
     }
 
-    state = state.copyWith(providerLabel: labSettings.providerLabel);
-    _activeSignature =
-        _configSignature(profile, labSettings, speechProfile.conditionKey, khayaSettings);
+    state = state.copyWith(
+        providerLabel:
+            labSettings.copyWith(provider: effectiveProvider).providerLabel);
+    _activeSignature = _configSignature(profile, labSettings,
+        speechProfile.conditionKey, khayaSettings, effectiveProvider);
 
     // Subscribe to Phrasebook — quick phrases follow the active
     // language (Ghanaian phrases carry a 'Twi · …' / 'Ewe · …'
@@ -321,13 +364,13 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
     _speechEngine = SpeechEngineFactory.createEngine(
       config: state.activeModel,
-      useLabApi: labSettings.useLabApi,
+      useLabApi: labReady,
       labSettings: labSettings,
       useKhayaApi: khayaReady,
       khayaSettings: khayaSettings,
     );
     _ttsEngine = TtsEngineFactory.create(
-      provider: labSettings.provider,
+      provider: effectiveProvider,
       labSettings: labSettings,
       khayaSettings: khayaSettings,
       appLanguage: profile.preferredLanguage,
@@ -414,9 +457,14 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         );
         break;
       case PartialTranscript(text: final text):
+        // Show the stammer profile's live text tidied too — the raw
+        // repetitions flashing on screen while speaking read as the
+        // app "not filtering", even though the final was cleaned.
         state = state.copyWith(
           engineState: UiEngineState.listening,
-          partialTranscript: text,
+          partialTranscript: _behavior.collapseRepetitions
+              ? DisfluencyNormalizer.collapse(text)
+              : text,
         );
         break;
       case SpeechProcessing():
@@ -704,7 +752,11 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     final lab = await UgHciLabSettings.load();
     final khaya = await KhayaSettings.load();
     final engine = TtsEngineFactory.create(
-      provider: lab.provider,
+      provider: effectiveSpeechProvider(
+        selected: lab.provider,
+        khayaConfigured: khaya.isConfigured,
+        online: _online,
+      ),
       labSettings: lab,
       khayaSettings: khaya,
       appLanguage: appLanguage,
@@ -748,12 +800,19 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
 
   /// Everything that decides how the engines are built. When this
   /// changes, the engines must be rebuilt — in place, no app restart.
-  String _configSignature(PersonalProfileEntity profile,
-          UgHciLabSettings lab, String conditionKey, KhayaSettings khaya) =>
+  String _configSignature(
+          PersonalProfileEntity profile,
+          UgHciLabSettings lab,
+          String conditionKey,
+          KhayaSettings khaya,
+          SpeechProvider effective) =>
       [
         profile.preferredLanguage,
         conditionKey,
         lab.provider.name,
+        // The EFFECTIVE provider flips with the network in Khaya
+        // mode — that flip alone must rebuild the engines.
+        effective.name,
         lab.baseUrl,
         lab.apiKey,
         lab.asrPath,
@@ -817,7 +876,13 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       final lab = await UgHciLabSettings.load();
       final khaya = await KhayaSettings.load();
       final speechProfile = await SpeechProfileSettings.load();
-      if (_configSignature(profile, lab, speechProfile.conditionKey, khaya) ==
+      final effective = effectiveSpeechProvider(
+        selected: lab.provider,
+        khayaConfigured: khaya.isConfigured,
+        online: _online,
+      );
+      if (_configSignature(
+              profile, lab, speechProfile.conditionKey, khaya, effective) ==
           _activeSignature) {
         return;
       }
@@ -898,6 +963,11 @@ final homeCommunicationProvider =
   });
   ref.listen(speechConfigRevisionProvider, (_, next) {
     notifier.refreshConfiguration();
+  });
+  // Automatic offline ⇄ online switching (Khaya mode): the network
+  // dropping rebuilds the engines offline; its return restores Khaya.
+  ref.listen(networkOnlineProvider, (_, next) {
+    next.whenData(notifier.setNetworkOnline);
   });
   return notifier;
 });
