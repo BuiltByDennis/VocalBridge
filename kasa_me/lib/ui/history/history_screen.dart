@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../components/accessible_tap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/accessibility/accessibility_settings.dart';
 import '../../speech/diagnostics/repositories/diagnostics_repository.dart';
@@ -27,7 +28,8 @@ class HistoryScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        GestureDetector(
+                        AccessibleTap(
+                          label: 'Back',
                           onTap: () => Navigator.pop(context),
                           child: Container(
                             width: 44,
@@ -43,7 +45,8 @@ class HistoryScreen extends ConsumerWidget {
                             style: Theme.of(context).textTheme.displayMedium),
                       ],
                     ),
-                    GestureDetector(
+                    AccessibleTap(
+                      label: 'Clear all history',
                       onTap: () => _clearAll(context, ref),
                       child: Container(
                         padding: const EdgeInsets.symmetric(

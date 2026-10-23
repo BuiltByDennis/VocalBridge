@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../components/accessible_tap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/accessibility/accessibility_settings.dart';
@@ -147,7 +148,10 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
 
   Widget _buildCard(_LanguageOption lang) {
     final isSelected = _selected == lang.code;
-    return GestureDetector(
+    return AccessibleTap(
+      label: lang.comingSoon ? '${lang.name}, coming soon' : lang.name,
+      selected: isSelected,
+      enabled: !lang.comingSoon,
       onTap: lang.comingSoon ? null : () => setState(() => _selected = lang.code),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

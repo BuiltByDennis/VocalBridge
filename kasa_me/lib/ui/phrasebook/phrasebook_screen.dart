@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../components/accessible_tap.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -125,7 +126,8 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
                 padding: const EdgeInsets.all(24.0),
                 child: Row(
                   children: [
-                    GestureDetector(
+                    AccessibleTap(
+                      label: 'Back',
                       onTap: () => Navigator.pop(context),
                       child: Container(
                         width: 44,
@@ -267,7 +269,8 @@ class _PhrasebookScreenState extends ConsumerState<PhrasebookScreen> {
               ),
             ),
             // Speak button
-            GestureDetector(
+            AccessibleTap(
+              label: 'Speak: ${entry.phrase}',
               onTap: () => _speakPhrase(entry),
               child: Container(
                 width: 44,
