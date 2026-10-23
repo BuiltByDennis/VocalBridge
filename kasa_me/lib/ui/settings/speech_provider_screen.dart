@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../components/accessible_tap.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -552,7 +553,8 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
       padding: const EdgeInsets.all(24.0),
       child: Row(
         children: [
-          GestureDetector(
+          AccessibleTap(
+            label: 'Back',
             onTap: () => Navigator.pop(context),
             child: Container(
               width: 44,
@@ -581,7 +583,9 @@ class _SpeechProviderScreenState extends ConsumerState<SpeechProviderScreen> {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return AccessibleTap(
+      label: title,
+      selected: selected,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../components/accessible_tap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:go_router/go_router.dart';
@@ -121,7 +122,8 @@ class _PersonalizationSettingsScreenState
                 padding: const EdgeInsets.all(24.0),
                 child: Row(
                   children: [
-                    GestureDetector(
+                    AccessibleTap(
+                      label: 'Back',
                       onTap: () => Navigator.pop(context),
                       child: Container(
                         width: 44,
