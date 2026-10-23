@@ -9,6 +9,7 @@ import '../engine/speech_engine.dart';
 import '../engine/speech_engine_factory.dart';
 import '../asr/models/asr_model_registry.dart';
 import '../personalization/personalization_pipeline.dart';
+import '../personalization/speech_profile_settings.dart';
 import '../translation/ewe_phrase_data.dart';
 import '../translation/twi_phrase_data.dart';
 import '../pipeline/streaming_audio_pipeline.dart';
@@ -94,16 +95,26 @@ class CalibrationService {
   }) : _personalizationPipeline = personalizationPipeline;
 
   Future<void> initialize() async {
+    // The person's speech profile shapes calibration too: patient
+    // profiles (cerebral palsy, stroke, stammer) get the patient VAD
+    // (lower threshold, longer silence patience) and the profile's
+    // microphone gain. Calibration used to run on the impatient
+    // defaults with no gain — for a person with cerebral palsy it
+    // cut them off and under-heard them while "teaching" the app
+    // their voice.
+    final behavior = (await SpeechProfileSettings.load()).behavior;
     _speechEngine = SpeechEngineFactory.createEngine(config: AsrModelRegistry.defaultModel);
-    _recorderService = AudioRecorderService();
+    _recorderService = AudioRecorderService()
+      ..micGainMultiplier = behavior.micGain;
     await _recorderService.initialize();
-    
-    // We create a custom VAD wrapper to intercept the state if needed, but since we can't easily 
-    // inject a listener into StreamingAudioPipeline's private _vad, we'll just use the pipeline normally.
-    // For automatic stop, the user will use a push-to-talk button in the wizard for this MVP.
+
     _pipeline = StreamingAudioPipeline(
       recorderService: _recorderService,
       speechEngine: _speechEngine,
+      vad: EnergyVad(
+        thresholdRms: behavior.vadThresholdRms,
+        maxSilenceFrames: behavior.vadMaxSilenceFrames,
+      ),
     );
 
     await _pipeline.initialize();

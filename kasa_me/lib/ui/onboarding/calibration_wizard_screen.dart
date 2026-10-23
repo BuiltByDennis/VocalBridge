@@ -175,7 +175,20 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
     final totalSteps = _phrases.length;
     final currentPhrase = _phrases[_currentStepIndex];
 
-    return Scaffold(
+    // The back button must never close the app from here. When this
+    // page was reached by go() (the old language-screen flow) it is
+    // the whole stack — back used to exit the app entirely.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Voice Calibration'),
         centerTitle: true,
@@ -381,6 +394,7 @@ class _CalibrationWizardScreenState extends ConsumerState<CalibrationWizardScree
             ],
           ),
         ),
+      ),
       ),
     );
   }

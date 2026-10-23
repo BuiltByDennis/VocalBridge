@@ -65,7 +65,12 @@ class PersonalizationSafetyGuard {
     if (_learnedPhraseMappings.containsKey(normRaw)) {
       final mapping = _learnedPhraseMappings[normRaw]!;
       if (_evidenceTracker.shouldApplyReplacement(frequency: mapping.frequency, confidence: baseConfidence, confidenceGate: confidenceGate, probableMinFrequency: probableMinFrequency)) {
-        return mapping.intended;
+        // Deletions still apply to the corrected phrase — returning
+        // early here used to bypass word-level processing entirely.
+        return _applyDeletions(mapping.intended,
+            baseConfidence: baseConfidence,
+            confidenceGate: confidenceGate,
+            probableMinFrequency: probableMinFrequency);
       }
     }
 
@@ -97,7 +102,39 @@ class PersonalizationSafetyGuard {
       }
     }
 
-    return resultWords.join(' ');
+    return _applyDeletions(resultWords.join(' '),
+        baseConfidence: baseConfidence,
+        confidenceGate: confidenceGate,
+        probableMinFrequency: probableMinFrequency);
+  }
+
+  /// Final pass: learned deletions apply to the RESULT, whichever
+  /// path produced it — a phrase correction returning early used to
+  /// bypass word-level processing, so a deleted word inside a
+  /// corrected phrase could never be removed.
+  String _applyDeletions(String text,
+      {required double? baseConfidence,
+      required double confidenceGate,
+      required int probableMinFrequency}) {
+    if (text.trim().isEmpty) return text;
+    if (!_learnedWordMappings.values.any((m) => m.intended.isEmpty)) {
+      return text;
+    }
+    final kept = <String>[];
+    for (final word in text.split(' ')) {
+      final mapping = _learnedWordMappings[_normalize(word)];
+      if (mapping != null &&
+          mapping.intended.isEmpty &&
+          _evidenceTracker.shouldApplyReplacement(
+              frequency: mapping.frequency,
+              confidence: baseConfidence,
+              confidenceGate: confidenceGate,
+              probableMinFrequency: probableMinFrequency)) {
+        continue; // deleted — never displayed, never spoken
+      }
+      kept.add(word);
+    }
+    return kept.join(' ');
   }
 
   String _normalize(String text) {

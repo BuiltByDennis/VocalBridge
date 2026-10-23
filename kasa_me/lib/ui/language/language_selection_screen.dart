@@ -34,6 +34,25 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
   String _selected = 'en_GH';
   bool _saving = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrent();
+  }
+
+  /// Tick the language the user ACTUALLY has. This used to start at
+  /// English unconditionally, so a Twi or Ewe user reopening this
+  /// page (e.g. from Settings) always saw English ticked, whatever
+  /// they had chosen before.
+  Future<void> _loadCurrent() async {
+    final repo = ProfileRepository(ref.read(databaseProvider));
+    final profile = await repo.getActiveProfile('default_user');
+    if (!mounted) return;
+    if (_languages.any((l) => l.code == profile.preferredLanguage)) {
+      setState(() => _selected = profile.preferredLanguage);
+    }
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _saving = true);
@@ -50,8 +69,16 @@ class _LanguageSelectionScreenState extends ConsumerState<LanguageSelectionScree
     if (!mounted) return;
     setState(() => _saving = false);
 
-    // Navigate to calibration (first run) — returning users can skip via welcome screen
-    context.go('/calibration');
+    // Opened from Settings (pushed): saving simply returns there.
+    // In the first-run flow there is nothing to pop to, so continue
+    // to calibration. (This used to go() unconditionally — landing
+    // on calibration with an empty stack, where the phone's back
+    // button closed the whole app.)
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/calibration');
+    }
   }
 
   @override

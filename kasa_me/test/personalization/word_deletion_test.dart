@@ -61,6 +61,21 @@ void main() {
           'I go');
     });
 
+    test('a deletion applies even when a phrase correction matches', () {
+      // The phrase path used to return before word-level processing,
+      // so a deleted word inside a corrected phrase survived.
+      final guard = PersonalizationSafetyGuard();
+      guard.validateAndAddPhraseMapping('i want um water',
+          'i want um water please',
+          frequency: 5);
+      guard.validateAndAddWordDeletion('um', frequency: 5);
+      expect(
+        guard.applySafeReplacements('i want um water',
+            baseConfidence: null),
+        'i want water please',
+      );
+    });
+
     test('blank or multi-word deletions are rejected', () {
       final guard = PersonalizationSafetyGuard();
       expect(guard.validateAndAddWordDeletion(''), isFalse);

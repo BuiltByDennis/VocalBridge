@@ -97,6 +97,7 @@ class PersonalizationPipeline {
         original: original,
         corrected: corrected,
         profileId: profileId,
+        frequency: frequency,
       );
     }
   }

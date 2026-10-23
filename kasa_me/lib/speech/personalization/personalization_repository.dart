@@ -11,6 +11,7 @@ class PersonalizationRepository {
     required String corrected,
     required String profileId,
     String context = 'general',
+    int frequency = 5,
   }) async {
     final obs = _normalize(original);
     final intd = _normalize(corrected);
@@ -43,6 +44,15 @@ class PersonalizationRepository {
                 observedPhrase: obs,
                 intendedPhrase: intd,
                 context: Value(context),
+                // A user-TAUGHT correction is deliberate teaching, not
+                // a single observation: it records at the taught
+                // tier so loadActiveMappings (which filters by the
+                // profile's minimum frequency) keeps it after every
+                // relaunch and engine rebuild. New rows used to start
+                // at the schema default of 1 and were filtered out
+                // immediately — corrections silently stopped applying
+                // to the very next utterance.
+                frequency: Value(frequency),
               ),
             );
       }
@@ -67,6 +77,8 @@ class PersonalizationRepository {
                 observed: obs,
                 intended: intd,
                 context: Value(context),
+                // Taught tier — see the phrase insert above.
+                frequency: Value(frequency),
               ),
             );
       }
