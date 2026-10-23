@@ -32,6 +32,20 @@ class KasaMeApp extends ConsumerWidget {
       themeMode: ThemeMode.light,
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        // Text magnification for low vision (WCAG 1.4.4): the
+        // in-app factor MULTIPLIES the system text size — it never
+        // replaces or caps it — so a user can combine both.
+        final media = MediaQuery.of(context);
+        final systemFactor = media.textScaler.scale(1000) / 1000;
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: TextScaler.linear(
+                systemFactor * accessibility.textScaleFactor),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

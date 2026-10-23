@@ -13,6 +13,12 @@ class AccessibilitySettings {
   final double micGainMultiplier;  // 1.0 (off) – 4.0 (4x gain)
   final double vadSensitivity;     // 0.1 (loose) – 0.9 (strict)
 
+  /// Extra text magnification ON TOP of the system font size
+  /// (1.0 = system size). For low-vision users: WCAG 1.4.4 asks that
+  /// text remain usable at 200% — the system setting plus this
+  /// in-app factor (up to 1.6×) gets there without pinch-zoom.
+  final double textScaleFactor;
+
   const AccessibilitySettings({
     this.autoSpeakOnTranscription = false,
     this.highContrastMode = false,
@@ -21,6 +27,7 @@ class AccessibilitySettings {
     this.dwellDelaySeconds = 1.5,
     this.micGainMultiplier = 1.0,
     this.vadSensitivity = 0.5,
+    this.textScaleFactor = 1.0,
   });
 
   AccessibilitySettings copyWith({
@@ -31,6 +38,7 @@ class AccessibilitySettings {
     double? dwellDelaySeconds,
     double? micGainMultiplier,
     double? vadSensitivity,
+    double? textScaleFactor,
   }) {
     return AccessibilitySettings(
       autoSpeakOnTranscription: autoSpeakOnTranscription ?? this.autoSpeakOnTranscription,
@@ -40,6 +48,7 @@ class AccessibilitySettings {
       dwellDelaySeconds: dwellDelaySeconds ?? this.dwellDelaySeconds,
       micGainMultiplier: micGainMultiplier ?? this.micGainMultiplier,
       vadSensitivity: vadSensitivity ?? this.vadSensitivity,
+      textScaleFactor: textScaleFactor ?? this.textScaleFactor,
     );
   }
 
@@ -51,6 +60,7 @@ class AccessibilitySettings {
         'dwellDelaySeconds': dwellDelaySeconds,
         'micGainMultiplier': micGainMultiplier,
         'vadSensitivity': vadSensitivity,
+        'textScaleFactor': textScaleFactor,
       };
 
   factory AccessibilitySettings.fromJson(Map<String, dynamic> json) {
@@ -62,6 +72,7 @@ class AccessibilitySettings {
       dwellDelaySeconds: (json['dwellDelaySeconds'] as num?)?.toDouble() ?? 1.5,
       micGainMultiplier: (json['micGainMultiplier'] as num?)?.toDouble() ?? 1.0,
       vadSensitivity: (json['vadSensitivity'] as num?)?.toDouble() ?? 0.5,
+      textScaleFactor: (json['textScaleFactor'] as num?)?.toDouble() ?? 1.0,
     );
   }
 }
@@ -121,6 +132,11 @@ class AccessibilitySettingsNotifier extends StateNotifier<AccessibilitySettings>
 
   Future<void> setVadSensitivity(double value) async {
     state = state.copyWith(vadSensitivity: value.clamp(0.1, 0.9));
+    await _save();
+  }
+
+  Future<void> setTextScale(double value) async {
+    state = state.copyWith(textScaleFactor: value.clamp(1.0, 1.6));
     await _save();
   }
 }

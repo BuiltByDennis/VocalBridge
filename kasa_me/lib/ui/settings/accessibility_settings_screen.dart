@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../components/accessible_tap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../../core/accessibility/accessibility_settings.dart';
@@ -34,7 +35,8 @@ class _AccessibilitySettingsScreenState extends ConsumerState<AccessibilitySetti
                 padding: const EdgeInsets.all(24.0),
                 child: Row(
                   children: [
-                    GestureDetector(
+                    AccessibleTap(
+                      label: 'Back',
                       onTap: () => Navigator.pop(context),
                       child: Container(
                         width: 48,
@@ -124,6 +126,20 @@ class _AccessibilitySettingsScreenState extends ConsumerState<AccessibilitySetti
                       onChanged: notifier.setHighContrast,
                     ),
 
+                    _sliderTile(
+                      cardColor: cardColor,
+                      textColor: textColor,
+                      icon: Icons.text_fields,
+                      iconColor: accentColor,
+                      title: 'Text Size',
+                      subtitle: _textScaleLabel(settings.textScaleFactor),
+                      value: settings.textScaleFactor,
+                      min: 1.0,
+                      max: 1.6,
+                      divisions: 6,
+                      onChanged: notifier.setTextScale,
+                    ),
+
                     const SizedBox(height: 16),
 
                     // ──────── 3.3 Cognitive Accessibility ────────
@@ -183,6 +199,12 @@ class _AccessibilitySettingsScreenState extends ConsumerState<AccessibilitySetti
         ),
       ),
     );
+  }
+
+  String _textScaleLabel(double f) {
+    if (f <= 1.0) return 'Standard — follows your phone\u2019s text size';
+    return '${(f * 100).round()}% — larger text everywhere in the app, '
+        'on top of your phone\u2019s own text size';
   }
 
   String _gainLabel(double gain) {

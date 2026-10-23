@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'accessible_tap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../home/home_communication_notifier.dart';
@@ -69,7 +70,8 @@ class EngineStatusBanner extends ConsumerWidget {
           iconColor: Colors.red.shade700,
           label: errorMessage ?? 'An error occurred',
           trailing: onRetry != null
-              ? GestureDetector(
+              ? AccessibleTap(
+                  label: 'Retry',
                   onTap: onRetry,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -110,11 +112,16 @@ class EngineStatusBanner extends ConsumerWidget {
           Icon(icon, size: 18, color: iconColor),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: iconColor,
-                    fontWeight: FontWeight.w500)),
+            // Announce state changes (Ready, Processing, errors) to
+            // screen readers instead of leaving them visual-only.
+            child: Semantics(
+              liveRegion: true,
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: iconColor,
+                      fontWeight: FontWeight.w500)),
+            ),
           ),
           if (trailing != null) trailing,
         ],
