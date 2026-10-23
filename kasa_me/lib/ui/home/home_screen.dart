@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../components/accessible_tap.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
@@ -42,7 +43,9 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const Spacer(flex: 1),
                   Center(
-                    child: GestureDetector(
+                    child: AccessibleTap(
+                      label: 'Open voice agent',
+                      hint: 'Goes to the talking screen',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const VoiceAgentScreen()),
@@ -99,7 +102,8 @@ class HomeScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (!isSimple)
-            GestureDetector(
+            AccessibleTap(
+              label: 'Open settings',
               onTap: () => context.push('/settings'),
               child: Container(
                 width: 48,
@@ -299,12 +303,18 @@ class HomeScreen extends ConsumerWidget {
             child: const Icon(Icons.home_filled, color: Colors.white),
           ),
           // Phrasebook — always visible
-          GestureDetector(
+          AccessibleTap(
+            label: 'Open phrasebook',
             onTap: () => context.push('/phrasebook'),
-            child: Icon(Icons.favorite_border, color: AppTheme.pageTextSecondary(highContrast: isHC)),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(Icons.favorite_border, color: AppTheme.pageTextSecondary(highContrast: isHC)),
+            ),
           ),
           // Voice Agent — always visible
-          GestureDetector(
+          AccessibleTap(
+            label: 'Open voice agent',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const VoiceAgentScreen()),
@@ -319,15 +329,25 @@ class HomeScreen extends ConsumerWidget {
           ),
           // History — hidden in simplified mode
           if (!isSimple)
-            GestureDetector(
+            AccessibleTap(
+              label: 'View history',
               onTap: () => context.push('/history'),
-              child: Icon(Icons.history, color: AppTheme.pageTextSecondary(highContrast: isHC)),
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Icon(Icons.history, color: AppTheme.pageTextSecondary(highContrast: isHC)),
+              ),
             ),
           // Settings — hidden in simplified mode
           if (!isSimple)
-            GestureDetector(
+            AccessibleTap(
+              label: 'Open settings',
               onTap: () => context.push('/settings'),
-              child: Icon(Icons.settings_outlined, color: AppTheme.pageTextSecondary(highContrast: isHC)),
+              child: SizedBox(
+                width: 48,
+                height: 48,
+                child: Icon(Icons.settings_outlined, color: AppTheme.pageTextSecondary(highContrast: isHC)),
+              ),
             ),
         ],
       ),

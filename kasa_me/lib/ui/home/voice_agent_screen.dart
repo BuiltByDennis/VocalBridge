@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../components/accessible_tap.dart';
 
 import 'package:flutter/material.dart';
 import '../../core/accessibility/accessibility_settings.dart';
@@ -208,7 +209,9 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
 
   Widget _buildActionChip(String label, IconData icon, VoidCallback? onTap) {
     final chipText = AppTheme.pageTextSecondary(highContrast: _isHC);
-    return GestureDetector(
+    return AccessibleTap(
+      label: label,
+      enabled: onTap != null,
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -296,7 +299,18 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
                     maxLines: 2,
                   ),
                 ),
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: isListening ? 'Stop recording' : 'Start recording',
+                  hint: 'Double tap to start or stop recording. You can also press and hold to talk.',
+                  onTap: () {
+                    if (isListening) {
+                      notifier.stopPushToTalk();
+                    } else if (isReady) {
+                      notifier.startPushToTalk();
+                    }
+                  },
+                  child: GestureDetector(
                   // Hold-to-speak: press and hold to record, release to process
                   onLongPressStart: (_) {
                     if (isReady) notifier.startPushToTalk();
@@ -335,6 +349,7 @@ class _VoiceAgentScreenState extends ConsumerState<VoiceAgentScreen>
                       size: 24,
                     ),
                   ),
+                ),
                 ),
               ],
             ),

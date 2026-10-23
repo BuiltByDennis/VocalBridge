@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../components/accessible_tap.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -548,9 +549,13 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
       spacing: 6,
       runSpacing: 6,
       children: words.map((word) {
-        return GestureDetector(
+        return AccessibleTap(
+          label: 'Correct the word $word',
+          hint: 'Opens the correction dialog for this word',
           onTap: () => _showCorrectionDialog(context, notifier, word, index),
           child: Container(
+            constraints: const BoxConstraints(minHeight: 44),
+            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: AppTheme.primaryPurple.withOpacity(0.08),
@@ -698,9 +703,12 @@ class _TranscriptionScreenState extends ConsumerState<TranscriptionScreen> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return AccessibleTap(
+      label: label,
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),
@@ -1006,7 +1014,9 @@ class _PhraseBar extends StatelessWidget {
         itemCount: phrases.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          return GestureDetector(
+          return AccessibleTap(
+            label: phrases[i],
+            hint: 'Says this phrase',
             onTap: () => onSelected(phrases[i]),
             child: Container(
               alignment: Alignment.center,
