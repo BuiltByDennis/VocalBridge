@@ -63,6 +63,8 @@ class TwiPhraseData {
     TwiPhrase('mɛfrɛ dokota', 'I will call the doctor', category: 'Healthcare', aliases: ['mefrɛ dokota']),
     TwiPhrase('aduro', 'Medicine', category: 'Healthcare'),
     TwiPhrase('yareɛ', 'Sickness', category: 'Healthcare', aliases: ['yaree']),
+    TwiPhrase('me pɛ aduro bio', 'I need more medicine', category: 'Healthcare'),
+    TwiPhrase('me yare paa', 'I am very sick', category: 'Healthcare'),
 
     // ── Pain & body ───────────────────────────────────────────────────
     TwiPhrase('me ho yɛ me ya', 'I am in pain', category: 'Pain & Body'),
@@ -74,6 +76,9 @@ class TwiPhraseData {
     TwiPhrase('me nsa yɛ me ya', 'My hand hurts', category: 'Pain & Body'),
     TwiPhrase('me se yɛ me ya', 'I have a toothache', category: 'Pain & Body'),
     TwiPhrase('me kɔn yɛ me ya', 'I have a sore throat', category: 'Pain & Body'),
+    TwiPhrase('me nkotodwe yɛ me ya', 'My knee hurts', category: 'Pain & Body'),
+    TwiPhrase('me ani yɛ me ya', 'My eye hurts', category: 'Pain & Body'),
+    TwiPhrase('me aso yɛ me ya', 'My ear hurts', category: 'Pain & Body'),
     TwiPhrase('ɛhefa na ɛyɛ wo ya', 'Where does it hurt?', category: 'Pain & Body', aliases: ['ɛhefa na ɛyɛ wo ya?']),
 
     // ── Daily needs ───────────────────────────────────────────────────
@@ -87,6 +92,12 @@ class TwiPhraseData {
     TwiPhrase('me pɛ tena ase', 'I want to sit down', category: 'Daily Needs'),
     TwiPhrase('boa me ma mensɔre', 'Help me get up', category: 'Daily Needs'),
     TwiPhrase('sɔ kanea no', 'Turn on the light', category: 'Daily Needs'),
+    TwiPhrase('sukɔm de me', 'I am thirsty', category: 'Daily Needs', aliases: ['sukom de me']),
+    TwiPhrase('me pɛ kɔ fie', 'I want to go home', category: 'Daily Needs'),
+    TwiPhrase('me pɛ aduane bio', 'I want more food', category: 'Daily Needs'),
+    TwiPhrase('kum kanea no', 'Turn off the light', category: 'Daily Needs'),
+    TwiPhrase('bue ɛpono no', 'Open the door', category: 'Daily Needs'),
+    TwiPhrase('to ɛpono no mu', 'Close the door', category: 'Daily Needs'),
 
     // ── Feelings ──────────────────────────────────────────────────────
     TwiPhrase('me suro', 'I am afraid', category: 'Feelings'),
@@ -106,11 +117,16 @@ class TwiPhraseData {
     TwiPhrase('wo pɛ aduro', 'Do you need medicine?', category: 'Questions', aliases: ['wo pɛ aduro?']),
     TwiPhrase('wo pɛ nsuo', 'Would you like some water?', category: 'Questions', aliases: ['wo pɛ nsuo?']),
     TwiPhrase('twɛn kakra', 'Please wait a moment', category: 'Questions', aliases: ['mepa wo kyɛw, twɛn kakra'], calibration: true),
+    TwiPhrase('wo te aseɛ', 'Do you understand?', category: 'Questions', aliases: ['wo te aseɛ?']),
+    TwiPhrase('me werɛ afiri', 'I forgot', category: 'Questions'),
 
     // ── Family & people ───────────────────────────────────────────────
     TwiPhrase('frɛ me maame ma me', 'Please call my mother for me', category: 'Family & People'),
     TwiPhrase('frɛ me papa ma me', 'Please call my father for me', category: 'Family & People'),
     TwiPhrase('me pɛ hu me abusua', 'I want to see my family', category: 'Family & People'),
+    TwiPhrase('me maame reba', 'My mother is coming', category: 'Family & People'),
+    TwiPhrase('me papa reba', 'My father is coming', category: 'Family & People'),
+    TwiPhrase('me pɛ hu wo', 'I want to see you', category: 'Family & People'),
 
     // ── Money & market ────────────────────────────────────────────────
     TwiPhrase('ɛyɛ sɛn', 'How much is it?', category: 'Money & Market', aliases: ['ɛyɛ sɛn?']),
@@ -119,13 +135,18 @@ class TwiPhraseData {
     TwiPhrase('me pɛ tɔ aduane', 'I want to buy food', category: 'Money & Market'),
     TwiPhrase('bank no wɔ he', 'Where is the bank?', category: 'Money & Market'),
     TwiPhrase('me pɛ twe sika', 'I want to withdraw money', category: 'Money & Market'),
+    TwiPhrase('me nni sika', 'I have no money', category: 'Money & Market'),
+    TwiPhrase('me pɛ tɔ nsuo', 'I want to buy water', category: 'Money & Market'),
     TwiPhrase('station no wɔ he', 'Where is the station?', category: 'Travel'),
+    TwiPhrase('dwa no wɔ he', 'Where is the market?', category: 'Travel', aliases: ['dwa no wɔ he?']),
 
     // ── Emergency ─────────────────────────────────────────────────────
     TwiPhrase('boa me', 'Help me', category: 'Emergency', calibration: true),
     TwiPhrase('me hia mmoa', 'I need help', category: 'Emergency'),
     TwiPhrase('frɛ ambulance', 'Call an ambulance', category: 'Emergency'),
     TwiPhrase('ogya', 'Fire!', category: 'Emergency'),
+    TwiPhrase('boa me ntem', 'Help me quickly', category: 'Emergency'),
+    TwiPhrase('bra ntem', 'Come quickly', category: 'Emergency'),
   ];
 
   /// The Twi voice-calibration set, in teaching order.

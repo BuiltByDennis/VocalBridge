@@ -121,6 +121,9 @@ class DictionaryTranslationService implements TranslationService {
     ('no', 'it'), ('firi', 'from'), ('seesei', 'now'),
     ('daabi', 'no'), ('twe', 'withdraw'), ('kanea', 'light'),
     ('bank', 'bank'), ('station', 'station'),
+    ('nkotodwe', 'knee'), ('sukɔm', 'thirst'), ('ntem', 'quickly'),
+    ('dwa', 'market'), ('ɛpono', 'door'), ('bue', 'open'),
+    ('kum', 'turn off'), ('bra', 'come'), ('nni', 'have no'),
   ];
 
   /// (ewe word, english word) vocabulary for the word-for-word gloss —
@@ -153,6 +156,10 @@ class DictionaryTranslationService implements TranslationService {
     ('afi', 'where'), ('ka', 'what'), ('nenie', 'how much'),
     ('ɣe', 'when'), ('la', 'the'), ('be', 'that'), ('me', 'in'),
     ('o', 'no'), ('ɛ̃', 'yes'), ('kuku', 'please'), ('', 'to'),
+    ('klo', 'knee'), ('ŋku', 'eye'), ('to', 'ear'), ('tsikɔ', 'thirst'),
+    ('kaba', 'quickly'), ('ʋɔtru', 'door'), ('ʋu', 'open'),
+    ('tu', 'close'), ('aƒe', 'home'), ('gɔme', 'understanding'),
+    ('ŋlɔ', 'forget'),
     ('a', ''), // question particle — no separate gloss
   ];
 

@@ -74,6 +74,8 @@ class EwePhraseData {
     EwePhrase('mayɔ dokita la', 'I will call the doctor', category: 'Healthcare'),
     EwePhrase('atike', 'Medicine', category: 'Healthcare'),
     EwePhrase('dɔléle', 'Sickness', category: 'Healthcare', aliases: ['dolele']),
+    EwePhrase('mehiã atike ake', 'I need more medicine', category: 'Healthcare', aliases: ['mehia atike ake']),
+    EwePhrase('dɔ le mem ŋutɔ', 'I am very sick', category: 'Healthcare', aliases: ['do le mem nguto']),
 
     // ── Pain & body ───────────────────────────────────────────────────
     EwePhrase('mele veve me', 'I am in pain', category: 'Pain & Body'),
@@ -85,6 +87,9 @@ class EwePhraseData {
     EwePhrase('asi le ve nam', 'My hand hurts', category: 'Pain & Body'),
     EwePhrase('aɖu le ve nam', 'I have a toothache', category: 'Pain & Body', aliases: ['adzu le ve nam']),
     EwePhrase('kɔ le ve nam', 'I have a sore throat', category: 'Pain & Body', aliases: ['ko le ve nam']),
+    EwePhrase('klo le ve nam', 'My knee hurts', category: 'Pain & Body'),
+    EwePhrase('ŋku le ve nam', 'My eye hurts', category: 'Pain & Body', aliases: ['nku le ve nam']),
+    EwePhrase('to le ve nam', 'My ear hurts', category: 'Pain & Body'),
     EwePhrase('afi ka ve le', 'Where does it hurt?', category: 'Pain & Body', aliases: ['afi ka ve le?']),
 
     // ── Daily needs ───────────────────────────────────────────────────
@@ -98,6 +103,12 @@ class EwePhraseData {
     EwePhrase('mehiã be manɔ anyi', 'I want to sit down', category: 'Daily Needs'),
     EwePhrase('kpe ɖe ŋunye matsi tre', 'Help me get up', category: 'Daily Needs'),
     EwePhrase('tsi akaɖi la', 'Turn on the light', category: 'Daily Needs', aliases: ['tsi akadi la']),
+    EwePhrase('tsikɔ le wum', 'I am thirsty', category: 'Daily Needs', aliases: ['tsiko le wum']),
+    EwePhrase('mehiã be mayi aƒe me', 'I want to go home', category: 'Daily Needs', aliases: ['mehia be mayi afe me']),
+    EwePhrase('mehiã nuɖuɖu ake', 'I want more food', category: 'Daily Needs', aliases: ['mehia nududu ake']),
+    EwePhrase('tu akaɖi la', 'Turn off the light', category: 'Daily Needs', aliases: ['tu akadi la']),
+    EwePhrase('ʋu ʋɔtru la', 'Open the door', category: 'Daily Needs', aliases: ['vu votru la']),
+    EwePhrase('tu ʋɔtru la', 'Close the door', category: 'Daily Needs', aliases: ['tu votru la']),
 
     // ── Feelings ──────────────────────────────────────────────────────
     EwePhrase('mele vɔ̃m', 'I am afraid', category: 'Feelings', aliases: ['mele vom']),
@@ -117,11 +128,16 @@ class EwePhraseData {
     EwePhrase('èhiã atike a', 'Do you need medicine?', category: 'Questions', aliases: ['ehia atike a', 'èhiã atike a?']),
     EwePhrase('èhiã tsi a', 'Would you like some water?', category: 'Questions', aliases: ['ehia tsi a', 'èhiã tsi a?']),
     EwePhrase('meɖe kuku, lala ɣaɖe', 'Please wait a moment', category: 'Questions', aliases: ['lala ɣaɖe', 'lala gade'], calibration: true),
+    EwePhrase('ese gɔme a', 'Do you understand?', category: 'Questions', aliases: ['ese gome a', 'ese gɔme a?']),
+    EwePhrase('meŋlɔ be', 'I forgot', category: 'Questions', aliases: ['menglo be']),
 
     // ── Family & people ───────────────────────────────────────────────
     EwePhrase('meɖe kuku, yɔ danye nam', 'Please call my mother for me', category: 'Family & People'),
     EwePhrase('meɖe kuku, yɔ tɔnye nam', 'Please call my father for me', category: 'Family & People'),
     EwePhrase('mehiã be makpɔ ƒonyemetɔwo', 'I want to see my family', category: 'Family & People', aliases: ['mehia be makpo fonyemetowo']),
+    EwePhrase('danye gbɔna', 'My mother is coming', category: 'Family & People'),
+    EwePhrase('tɔnye gbɔna', 'My father is coming', category: 'Family & People'),
+    EwePhrase('mehiã be makpɔ wò', 'I want to see you', category: 'Family & People', aliases: ['mehia be makpo wo']),
 
     // ── Money & market ────────────────────────────────────────────────
     EwePhrase('nenie', 'How much is it?', category: 'Money & Market', aliases: ['nenie?', 'eƒe homee nenie?']),
@@ -130,13 +146,18 @@ class EwePhraseData {
     EwePhrase('mehiã be maƒle nuɖuɖu', 'I want to buy food', category: 'Money & Market', aliases: ['mehia be mafle nududu']),
     EwePhrase('afi ka bank la le', 'Where is the bank?', category: 'Money & Market', aliases: ['afi ka bank la le?']),
     EwePhrase('mehiã be maɖe ga le bank', 'I want to withdraw money', category: 'Money & Market'),
+    EwePhrase('ga mele asinye o', 'I have no money', category: 'Money & Market'),
+    EwePhrase('mehiã be maƒle tsi', 'I want to buy water', category: 'Money & Market', aliases: ['mehia be mafle tsi']),
     EwePhrase('afi ka station la le', 'Where is the station?', category: 'Travel', aliases: ['afi ka station la le?']),
+    EwePhrase('afi ka asi la le', 'Where is the market?', category: 'Travel', aliases: ['afi ka asi la le?']),
 
     // ── Emergency ─────────────────────────────────────────────────────
     EwePhrase('kpe ɖe ŋunye', 'Help me', category: 'Emergency', aliases: ['kpe de ngunye'], calibration: true),
     EwePhrase('mehiã kpeɖeŋu', 'I need help', category: 'Emergency', aliases: ['mehia kpedzenu']),
     EwePhrase('yɔ ambulance la', 'Call an ambulance', category: 'Emergency'),
     EwePhrase('dzo', 'Fire!', category: 'Emergency'),
+    EwePhrase('kpe ɖe ŋunye kaba', 'Help me quickly', category: 'Emergency', aliases: ['kpe de ngunye kaba']),
+    EwePhrase('va kaba', 'Come quickly', category: 'Emergency'),
   ];
 
   /// The Ewe voice-calibration set, in teaching order.
