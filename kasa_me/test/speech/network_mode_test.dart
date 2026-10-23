@@ -82,4 +82,46 @@ void main() {
       );
     });
   });
+
+  group('effectiveSpeechLanguage — automatic English fallback', () {
+    test('offline + Twi falls back to English', () {
+      expect(
+        effectiveSpeechLanguage(
+          profileLanguage: 'twi',
+          effectiveProvider: SpeechProvider.offline,
+        ),
+        'en_GH',
+      );
+    });
+
+    test('offline + Ewe falls back to English', () {
+      expect(
+        effectiveSpeechLanguage(
+          profileLanguage: 'ewe',
+          effectiveProvider: SpeechProvider.offline,
+        ),
+        'en_GH',
+      );
+    });
+
+    test('Khaya online keeps the Ghanaian language', () {
+      expect(
+        effectiveSpeechLanguage(
+          profileLanguage: 'twi',
+          effectiveProvider: SpeechProvider.khaya,
+        ),
+        'twi',
+      );
+    });
+
+    test('English stays English in every mode', () {
+      expect(
+        effectiveSpeechLanguage(
+          profileLanguage: 'en_GH',
+          effectiveProvider: SpeechProvider.offline,
+        ),
+        'en_GH',
+      );
+    });
+  });
 }

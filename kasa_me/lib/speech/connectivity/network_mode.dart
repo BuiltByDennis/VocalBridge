@@ -30,6 +30,29 @@ SpeechProvider effectiveSpeechProvider({
   return selected;
 }
 
+/// Ghanaian languages have no on-device model — they exist only
+/// through a cloud provider.
+bool isGhanaianLanguage(String code) =>
+    code == 'twi' || code == 'ewe' || code == 'dagbani';
+
+/// The language the engines should run in RIGHT NOW. When the
+/// effective provider is OFFLINE and the person's language is
+/// Ghanaian, there is nothing that can recognize or speak it — so
+/// the app falls back to English automatically and the person can
+/// keep talking. The saved preference is never changed: when the
+/// network returns and the provider is Khaya again, this returns
+/// the Ghanaian language and the rebuild restores it by itself.
+String effectiveSpeechLanguage({
+  required String profileLanguage,
+  required SpeechProvider effectiveProvider,
+}) {
+  if (effectiveProvider == SpeechProvider.offline &&
+      isGhanaianLanguage(profileLanguage)) {
+    return 'en_GH';
+  }
+  return profileLanguage;
+}
+
 /// Live network state: `true` while any connection is available.
 /// Emits the current state on listen, then every change.
 final networkOnlineProvider = StreamProvider<bool>((ref) async* {

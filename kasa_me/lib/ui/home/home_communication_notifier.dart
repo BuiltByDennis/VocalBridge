@@ -239,7 +239,8 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     _accessibilitySettings = settings;
     // Apply mic gain immediately — _recorderService is late so guard with try/catch
     try {
-      _recorderService.micGainMultiplier = settings.micGainMultiplier;
+      _recorderService.micGainMultiplier =
+          settings.micGainMultiplier * _behavior.micGain;
     } catch (_) {
       // Recorder not yet initialized; gain will be applied in _initialize()
     }
@@ -262,12 +263,11 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
     state = state.copyWith(engineState: UiEngineState.loading);
     final startTime = DateTime.now();
 
-    // Fetch preferred language
+    // Fetch preferred language. The ACTIVE language is resolved
+    // after the provider/network state below: offline, a Ghanaian
+    // language falls back to English automatically (see
+    // effectiveSpeechLanguage in network_mode.dart).
     final profile = await _profileRepository.getActiveProfile('default_user');
-    final activeModel = AsrModelRegistry.getModelForLanguage(profile.preferredLanguage) 
-        ?? AsrModelRegistry.defaultModel;
-
-    state = state.copyWith(activeModel: activeModel, selectedLanguage: profile.preferredLanguage);
 
     // Shape recognition around this person: their speech-condition
     // profile decides how the personalization pipeline behaves.
@@ -305,23 +305,33 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
         khayaSettings.isConfigured;
     final labReady = effectiveProvider == SpeechProvider.ugHciLab &&
         labSettings.isConfigured;
+    // Automatic English fallback: offline, a Ghanaian language has
+    // no on-device model, so the app runs in English until the
+    // network returns — the person keeps talking instead of hitting
+    // an error wall. The saved preference is untouched, and the
+    // rebuild on reconnect restores Twi/Ewe by itself.
+    final activeLanguage = effectiveSpeechLanguage(
+      profileLanguage: profile.preferredLanguage,
+      effectiveProvider: effectiveProvider,
+    );
+    final activeModel = AsrModelRegistry.getModelForLanguage(activeLanguage) ??
+        AsrModelRegistry.defaultModel;
+    state = state.copyWith(
+        activeModel: activeModel, selectedLanguage: activeLanguage);
+
     const ghanaianNames = {'twi': 'Twi', 'ewe': 'Ewe', 'dagbani': 'Dagbani'};
     final ghanaianName = ghanaianNames[profile.preferredLanguage];
-    if (ghanaianName != null && !labReady && !khayaReady) {
-      final autoOffline = labSettings.provider == SpeechProvider.khaya &&
-          khayaSettings.isConfigured &&
-          !_online;
+    if (ghanaianName != null &&
+        !labReady &&
+        !khayaReady &&
+        activeLanguage == profile.preferredLanguage) {
       state = state.copyWith(
         engineState: UiEngineState.error,
-        errorMessage: autoOffline
-            ? 'You are offline — $ghanaianName needs the internet (Khaya), and there is no on-device $ghanaianName model. '
-                'Kasa Me reconnects by itself when the network returns. English still works offline: '
-                'switch your language to English in Settings to keep talking.'
-            : labSettings.provider == SpeechProvider.khaya
-                ? '$ghanaianName via Khaya needs a Khaya API key — there is no on-device $ghanaianName model. '
-                    'Open Settings → Speech Provider and add your Khaya subscription key to enable it.'
-                : '$ghanaianName needs a cloud speech provider — there is no on-device $ghanaianName model. '
-                    'Open Settings → Speech Provider and add your UG HCI Lab or Khaya API key to enable it.',
+        errorMessage: labSettings.provider == SpeechProvider.khaya
+            ? '$ghanaianName via Khaya needs a Khaya API key — there is no on-device $ghanaianName model. '
+                'Open Settings → Speech Provider and add your Khaya subscription key to enable it.'
+            : '$ghanaianName needs a cloud speech provider — there is no on-device $ghanaianName model. '
+                'Open Settings → Speech Provider and add your UG HCI Lab or Khaya API key to enable it.',
       );
       return;
     }
@@ -373,10 +383,14 @@ class HomeCommunicationNotifier extends StateNotifier<HomeCommunicationState> {
       provider: effectiveProvider,
       labSettings: labSettings,
       khayaSettings: khayaSettings,
-      appLanguage: profile.preferredLanguage,
+      appLanguage: activeLanguage,
     );
     _recorderService = AudioRecorderService()
-      ..micGainMultiplier = _accessibilitySettings.micGainMultiplier;
+      // The speech profile's gain is part of the profile (cerebral
+      // palsy / stroke: 1.5×, cleft: 1.25×) — it used to be defined
+      // but never applied, so quiet voices got no boost at all.
+      ..micGainMultiplier =
+          _accessibilitySettings.micGainMultiplier * _behavior.micGain;
     await _recorderService.initialize();
 
     _pipeline = StreamingAudioPipeline(
